@@ -129,14 +129,11 @@ struct PxReader {
             return;
         }
 
-        std::cout << "Read started for " << column_ids.size() << " columns. Data chunk has " << output.ColumnCount() << " columns.\n";
-
         idx_t out_idx = 0;
         column_t variables = pxfile.variable_count, col_idx = 0;
 
         while (true) {
             for (size_t i = 0; i <= variables; i++) {
-                // col_idx = column_ids[i];
                 col_idx = i;
                 if (col_idx == variables) {
                     FlatVector::GetData<string_t>(*read_vecs[variables])[out_idx] = GetNextValue();
@@ -159,13 +156,8 @@ struct PxReader {
             output.data[i].Reference(*read_vecs[i]);
         }
 
-
-        // for (size_t i = 0; i < column_ids.size(); i++) {
-            // output.data[column_ids[i]].Reference(*read_vecs[i]);
-        // }
-
         output.SetCardinality(out_idx);
-        std::cout << "Read done.\n";
+
     }
 
     const string &GetFileName() { return filename; }
@@ -187,8 +179,6 @@ struct PxReader {
         allocated_data = Allocator::Get(context).Allocate(file->GetFileSize());
         auto n_read = file->Read(allocated_data.get(), allocated_data.GetSize());
         D_ASSERT(n_read == file->GetFileSize());
-
-        std::cout << "Read " << file->GetFileSize() << " bytes\n";
 
         /* Parse column types */
         data_size = file->GetFileSize();
@@ -237,8 +227,6 @@ struct PxReader {
 
 
         // Add variables
-        std::cout << "Variable count: " << pxfile.variable_count << "\n";
-
         for (size_t i = 0; i < pxfile.variable_count; i++) {
 
             Variable& var = pxfile.variables[i];
@@ -255,9 +243,6 @@ struct PxReader {
 
         size_t repetition_factor = 1, col_idx = pxfile.variable_count - 1;
         for (size_t i = 0; i < pxfile.variable_count; i++) {
-
-
-            std::cout << "Rep: " << pxfile.variables[col_idx].GetName() << ", " << repetition_factor << "\n";
             pxfile.variables[col_idx].SetRepetitionFactor(repetition_factor);
             repetition_factor *= pxfile.variables[col_idx].CodeCount();
             col_idx--;
@@ -267,8 +252,6 @@ struct PxReader {
         read_vecs.push_back( make_uniq<Vector>(LogicalType::VARCHAR) );
         return_types.push_back(LogicalType::VARCHAR);
         names.push_back("value");
-
-        std::cout << "PxReader done.\n";
 
         D_ASSERT(pxfile.variable_count >= 2);
 
@@ -444,10 +427,6 @@ unique_ptr<GlobalTableFunctionState> PxGlobalInit(ClientContext &context, TableF
 
   if (!PxNextFile(context, bind_data, global_state, bind_data.initial_reader)) {
     throw InternalException("Cannot scan PX-files!");
-  }
-
-  if (global_state_result->reader == nullptr) {
-    std::cout << "global_state_result->reader is null!\n";
   }
 
   return std::move(global_state_result);

@@ -55,14 +55,7 @@ struct Variable {
     size_t repetition_factor;
     size_t repetition_counter;
 
-    ~Variable() {
-        std::cout << "Variable Destructor called for " << name << "\n";
-    };
-
-
-    Variable(string p_name) :  name(p_name), code_iterator(0), repetition_counter(0), repetition_factor(0), codes(), values() {
-        std::cout << "Created variable " << name << ", " << code_iterator << "\n";
-    };
+    Variable(string p_name) :  name(p_name), code_iterator(0), repetition_counter(0), repetition_factor(0), codes(), values() {};
 
     const string &GetName() { return name; };
 
@@ -109,11 +102,6 @@ struct PxFile {
     PxFile() : variable_count(0), variables() {
         variables.reserve(10);
     }
-
-
-    ~PxFile() {
-        std::cout << "PxFile Destructor called\n";
-    };
 
     void AddVariable(string name) {
         variable_count++;
