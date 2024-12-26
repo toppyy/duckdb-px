@@ -1,0 +1,106 @@
+CHARSET="ANSI";
+AXIS-VERSION="2006";
+CODEPAGE="iso-8859-15";
+LANGUAGE="fi";
+LANGUAGES="fi","en";
+CREATION-DATE="20071203 09:00";
+DECIMALS=2;
+SHOWDECIMALS=1;
+MATRIX="akay_001_200900";
+SUBJECT-CODE="ELI";
+SUBJECT-AREA="Elinolot";
+SUBJECT-AREA[en]="Living Conditions";
+COPYRIGHT=YES;
+DESCRIPTION="001 -- Ajankäyttö (26 lk) syksyllä";
+DESCRIPTION[en]="001 -- Time Use (26 categories) in autumn 1979, 1987 1999 and 2009";
+TITLE="001 -- Ajankäyttö (26 lk) syksyllä";
+TITLE[en]="001 -- Time Use (26 categories) in autumn 1979, 1987 1999 and 2009";
+DESCRIPTIONDEFAULT=YES;
+CONTENTS="Ajankäyttö (26 lk) syksyllä";
+CONTENTS[en]="Time Use (26 categories) in autumn 1979, 1987 1999 and 2009";
+UNITS="tuntia,minuuttia, %";
+UNITS[en]="Hours,minutes; %";
+STUB="Toiminto";
+STUB[en]="Activity";
+HEADING="Tiedot","Sukupuoli","Vuosi";
+HEADING[en]="Information","Sex","Year";
+VALUES("Toiminto")="01-26  Yhteensä","01-02  Ansiotyö yhteensä","01     Ansiotyö",
+"02     Työmatkat","03-08  Kotityö yhteensä","03     Kotitaloustyö","04     Huoltotyö",
+"05     Muut kotityöt","06     Lasten hoito","07     Ostokset ja asiointi",
+"08     Kotityöhön liittyvät matkat","09-11  Henkilökohtaiset tarpeet yhteensä","09     Nukkuminen",
+"10     Ruokailu","11     Peseytyminen, pukeutuminen","12-14  Opiskelu yhteensä",
+"12     Koulunkäynti ja opiskelu","13     Koulumatkat","14     Vapaa-ajan opiskelu (ml. matkat)",
+"15-25  Vapaa-aika yhteensä","15     Osallistuva toiminta","16     Liikunta ja ulkoilu",
+"17     Kulttuuri- ja huvitilaisuudet","18     Lukeminen","19     Radion kuuntelu",
+"20     Television katselu","21     Seurustelu perheen kanssa","22     Seurustelu tuttavien kanssa",
+"23     Harrastukset","24     Muu vapaa-aika","25     Vapaa-ajan matkat","26     Erittelemätön";
+VALUES[en]("Activity")="01-26  Total","01-02  Gainful employment, total",
+"01     Gainful employment","02     Travel to and from work","03-08  Domestic work ,total",
+"03     Housekeeping","04     Maintenance work","05     Other domestic work","06     Childcare",
+"07     Shopping and services","08     Travel related to domestic work",
+"09-11  Personal care, total","09     Sleep","10     Meals","11     Washing and dressing",
+"12-14  Study, total","12     School or university","13     Travel related to study",
+"14     Free time study (incl. related travel)","15-25  Free time, total",
+"15     Participatory activity","16     Sports and outdoor activities",
+"17     Entertainment and culture","18     Reading","19     Listening to radio",
+"20     Watching television","21     Socialising with family","22     Socialising with friends",
+"23     Hobbies","24     Other free time","25     Travel related to free time","26     Unspecified";
+VALUES("Tiedot")="10-64 vuotiaiden käytetty aika tuntia,min/vrk","Toimintoon osallistuneita %";
+VALUES[en]("Information")="Time used hours,minutes","Participated, %";
+VALUES("Sukupuoli")="Yhteensä","Miehet","Naiset";
+VALUES[en]("Sex")="Total","Men","Women";
+VALUES("Vuosi")="1979","1987","1999","2009";
+VALUES[en]("Year")="1979","1987","1999","2009";
+CODES("Toiminto")="01-26","01-02","01","02","03-08","03","04","05","06","07","08","09-11","09",
+"10","11","12-14","12","13","14","15-25","15","16","17","18","19","20","21","22","23","24","25","26";
+CODES[en]("Activity")="01-26","01-02","01","02","03-08","03","04","05","06","07","08","09-11","09",
+"10","11","12-14","12","13","14","15-25","15","16","17","18","19","20","21","22","23","24","25","26";
+CODES("Tiedot")="Kaytaika","Osallist";
+CODES[en]("Information")="Kaytaika","Osallist";
+CODES("Sukupuoli")="S","1","2";
+CODES[en]("Sex")="S","1","2";
+CODES("Vuosi")="1979","1987","1999","2009";
+CODES[en]("Year")="1979","1987","1999","2009";
+PRECISION("Tiedot","10-64 vuotiaiden käytetty aika tuntia,min/vrk")=2;
+PRECISION[en]("Information","Time used hours,minutes")=2;
+LAST-UPDATED="20110217 09:00";
+CONTACT="Tilastokeskus#<A HREF=http://tilastokeskus.fi/til/akay/index.html TARGET=_blank>Tilaston kotisivu</A>#<A HREF=http://tilastokeskus.fi/til/akay/yht.html TARGET=_blank>Lisätietoja</A>";
+CONTACT[en]="Statistics Finland#<A HREF=http://tilastokeskus.fi/til/akay/index_en.html TARGET=_blank>Statistics' home page</A>#<A HREF=http://tilastokeskus.fi/til/akay/yht_en.html TARGET=_blank>Further information</A>";
+SOURCE="TIlastokeskus";
+SOURCE[en]="Statistics Finland";
+NOTE="<A HREF=http://tilastokeskus.fi/meta/til/akay.html TARGET=_blank>Tilaston kuvaus</A>#<A HREF=http://tilastokeskus.fi/til/akay/laa.html TARGET=_blank>Laatuselosteet</A>#<A HREF=http://tilastokeskus.fi/til/akay/kas.html TARGET=_blank>Käsitteet ja "
+"määritelmät</A>#";
+NOTE[en]="<A HREF=http://tilastokeskus.fi/meta/til/akay_en.html TARGET=_blank>Description</A>#<A HREF=http://tilastokeskus.fi/til/akay/kas_en.html TARGET=_blank>Concepts and definitions</A>#";
+DATA=
+24 24 24 24 24 24 24 24 24 24 24 24 100 100 100 100 100 100 100 100 100 100 100 100 
+3.41 3.53 3.43 3.02 4.18 4.29 4.27 3.22 3.07 3.17 3.03 2.42 48.8 49.3 45.2 38.7 53.3 54.4 50.9 41.2 44.6 44 40 36.2 
+3.25 3.36 3.26 2.47 4 4.09 4.08 3.07 2.53 3.02 2.47 2.27 "." 49.2 45.2 38.6 "." 54.3 50.9 41.2 "." 44 40 36 
+0.16 0.17 0.17 0.15 0.18 0.2 0.19 0.15 0.14 0.15 0.16 0.15 36.7 38.7 37.6 31.8 40.7 42.7 41 32.7 33.1 34.7 34.6 31 
+2.46 2.47 2.51 2.48 1.5 2.01 2.03 2.12 3.39 3.35 3.36 3.25 88.9 90.4 90.3 90.3 81.9 85.5 84.1 87 95.3 95.3 96.1 93.5 
+1.28 1.18 1.16 1.11 0.34 0.35 0.4 0.47 2.18 2.02 1.49 1.36 75.3 74.9 80.2 79.1 59.3 61.1 69 71.5 90.1 88.9 90.4 86.7 
+0.18 0.18 0.19 0.17 0.27 0.27 0.25 0.22 0.1 0.09 0.14 0.13 24.4 24.7 24.5 25.2 27.2 28.9 24.4 26.4 21.9 20.4 24.6 24 
+0.11 0.11 0.13 0.16 0.11 0.12 0.11 0.14 0.1 0.11 0.15 0.18 23.6 21.7 17.9 23.5 20.8 19.1 14.3 17.4 26.3 24.2 21.1 29.7 
+0.16 0.18 0.2 0.19 0.08 0.09 0.09 0.11 0.24 0.28 0.3 0.27 19.8 20.1 20.2 16.3 14 13.9 13.6 13.1 25.2 26.5 26.2 19.6 
+0.22 0.23 0.25 0.26 0.19 0.2 0.21 0.22 0.25 0.26 0.28 0.3 47.8 51.4 49.9 49.5 41.2 45.1 43.8 45 53.8 57.9 55.5 54 
+0.11 0.18 0.18 0.18 0.11 0.18 0.17 0.16 0.12 0.19 0.19 0.2 30.9 50.2 42.5 42.1 28.5 46.9 38.3 35.7 33.1 53.5 46.4 48.7 
+10.34 10.23 10.29 10.41 10.34 10.25 10.21 10.33 10.32 10.22 10.38 10.49 100 100 100 100 100 100 100 100 100 100 100 100 
+8.3 8.24 8.29 8.31 8.31 8.24 8.24 8.28 8.29 8.24 8.34 8.34 100 100 99.9 99.7 100 100 99.7 99.8 99.9 100 100 99.6 
+1.2 1.13 1.14 1.18 1.23 1.17 1.16 1.2 1.16 1.09 1.13 1.16 99.7 99.4 98.9 98.5 99.6 99.5 98.5 98.4 99.7 99.3 99.3 98.5 
+0.44 0.46 0.46 0.52 0.4 0.44 0.41 0.45 0.47 0.48 0.51 0.59 95.3 96.5 94.8 94.5 94.2 95.1 92.7 92.4 96.4 97.9 96.7 96.5 
+1.17 1.05 1 1 1.13 1.01 0.51 0.53 1.2 1.1 1.09 1.07 23.4 20.8 17.7 18.5 22.5 19.5 15.1 16.8 24.2 22.2 20 20.3 
+1.05 0.55 0.51 0.5 1.03 0.51 0.44 0.46 1.06 0.58 0.58 0.54 18.9 16.9 16.2 16.9 18.3 15.8 13.7 15.7 19.4 17.9 18.4 18.1 
+0.07 0.06 0.06 0.07 0.06 0.06 0.05 0.06 0.08 0.06 0.08 0.09 14.9 13.3 13.2 12.9 14.7 12.5 11.8 12.2 15.1 14.1 14.4 13.6 
+0.05 0.05 0.03 0.03 0.04 0.04 0.03 0.02 0.06 0.05 0.03 0.05 5.2 4.9 1.7 1.8 4.7 4.1 1.5 1 5.7 5.8 1.9 2.6 
+5.38 5.48 5.5 6.15 6.03 6.02 6.12 6.47 5.2 5.35 5.3 5.42 99.5 99.3 99.1 99.1 99.3 99.1 98.7 98.9 99.7 99.5 99.5 99.3 
+0.08 0.07 0.06 0.06 0.1 0.07 0.07 0.07 0.07 0.07 0.05 0.06 6.7 6.2 4.9 5.6 6.7 5.6 4.6 5.4 6.8 6.8 5.1 5.8 
+0.32 0.32 0.34 0.38 0.42 0.39 0.39 0.41 0.23 0.24 0.29 0.36 37.2 36.4 39.8 40.7 40.2 37.6 39.3 37.4 34.4 35.3 40.2 44.1 
+0.06 0.05 0.06 0.05 0.07 0.06 0.06 0.05 0.05 0.05 0.05 0.04 6.1 6 7.4 5.1 6.2 5.7 7.4 5.1 5.9 6.4 7.4 5.2 
+0.48 0.49 0.42 0.36 0.52 0.5 0.39 0.37 0.45 0.48 0.45 0.36 78.3 77.4 65.8 55.5 78 76.5 62.3 53.1 78.5 78.4 69.1 57.9 
+0.08 0.1 0.04 0.03 0.1 0.11 0.05 0.04 0.06 0.08 0.04 0.02 17.8 20.1 10.5 6.7 20.4 21.6 9.4 6.7 15.5 18.6 11.5 6.7 
+1.18 1.41 2.1 2.05 1.27 1.51 2.25 2.2 1.1 1.3 1.56 1.5 72.1 81.6 86.3 82.8 74.4 83.8 85.7 83.1 70 79.5 86.9 82.5 
+0.12 0.12 0.07 0.06 0.12 0.11 0.05 0.06 0.13 0.13 0.09 0.07 27.8 30 22 19.9 25 26.2 17 15.8 30.3 33.8 26.6 24.1 
+1 0.58 0.45 0.45 0.59 0.53 0.46 0.43 1.01 1.04 0.44 0.47 58.5 61.2 50.9 48 52.5 53 43.5 41.4 64.1 69.5 57.8 54.8 
+0.27 0.25 0.28 1.06 0.18 0.2 0.32 1.2 0.36 0.3 0.25 0.52 34.9 32.5 33.2 59 24.8 25.6 32.8 59.2 44.1 39.6 33.6 58.8 
+0.32 0.17 0.16 0.15 0.35 0.2 0.17 0.16 0.29 0.14 0.16 0.15 53.4 36.7 38.1 33.3 53.1 37.3 35.3 34.4 53.7 36.1 40.7 32.2 
+0.27 0.32 0.31 0.28 0.31 0.34 0.32 0.29 0.25 0.3 0.3 0.26 40.9 46.8 41 36.7 43.7 48.2 41.8 37.4 38.4 45.3 40.2 36.1 
+0.02 0.03 0.06 0.14 0.03 0.03 0.07 0.13 0.02 0.03 0.06 0.15 3.5 1.8 10.1 11.3 3.6 1.7 10.5 10.3 3.3 1.8 9.8 12.3; 
