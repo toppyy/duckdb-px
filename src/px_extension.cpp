@@ -129,7 +129,7 @@ struct PxReader {
             return;
         }
 
-        std::cout << "Read started.\n";
+        std::cout << "Read started for " << column_ids.size() << " columns.\n";
 
         idx_t out_idx = 0;
         column_t variables = pxfile.variable_count, col_idx = 0;
@@ -138,29 +138,28 @@ struct PxReader {
             for (size_t i = 0; i < column_ids.size(); i++) {
                 col_idx = column_ids[i];
                 if (col_idx == variables) {
-                    // FlatVector::GetData<string_t>(*read_vecs[variables])[out_idx] = "123";
                     FlatVector::GetData<string_t>(*read_vecs[variables])[out_idx] = GetNextValue();
                     continue;
                 }
-                FlatVector::GetData<string_t>(*read_vecs[col_idx])[out_idx] = pxfile.GetValueForVariable(col_idx);                
+                FlatVector::GetData<string_t>(*read_vecs[col_idx])[out_idx] = pxfile.GetValueForVariable(col_idx);
             }
 
             out_idx++;
             if (data_offset >= data_size) {
                 break;
             }
-            pxfile.IncrementVariableCode(variables);
 
             if (out_idx == STANDARD_VECTOR_SIZE) {
                 break;
             }
         }
-
+        // std::cout << "While done.\n";
         for (size_t i = 0; i < column_ids.size(); i++) {
             output.data[column_ids[i]].Reference(*read_vecs[i]);
         }
-        
+
         output.SetCardinality(out_idx);
+        std::cout << "Read done.\n";
     }
 
     const string &GetFileName() { return filename; }
@@ -170,7 +169,7 @@ struct PxReader {
     const vector<LogicalType> &GetTypes() { return return_types; }
 
     PxReader(ClientContext &context, const string filename_p, const PxOptions &options_p)
-        : pxfile(), data_offset(0), data_size(0), data(nullptr), read_vecs(), return_types(), names()    
+        : pxfile(), data_offset(0), data_size(0), data(nullptr), read_vecs(), return_types(), names()
     {
         filename = filename_p;
         auto &fs = FileSystem::GetFileSystem(context);
@@ -195,7 +194,7 @@ struct PxReader {
 
         do {
             char c = data[idx];
-            
+
             current_keyword = ParseKeyword(data + idx);
 
             if (current_keyword == PxKeyword::DATA) break;
@@ -248,6 +247,16 @@ struct PxReader {
             names.push_back(var.GetName());
         }
 
+        size_t repetition_factor = 1, col_idx = pxfile.variable_count - 1;
+        for (size_t i = 0; i < pxfile.variable_count; i++) {
+
+
+            std::cout << "Rep: " << pxfile.variables[col_idx].GetName() << ", " << repetition_factor << "\n";
+            pxfile.variables[col_idx].SetRepetitionFactor(repetition_factor);
+            repetition_factor *= pxfile.variables[col_idx].CodeCount();
+            col_idx--;
+        }
+
         // Variable(s) for values
         read_vecs.push_back( make_uniq<Vector>(LogicalType::VARCHAR) );
         return_types.push_back(LogicalType::VARCHAR);
@@ -274,7 +283,7 @@ struct PxReader {
 
 
 struct PxBindData : FunctionData {
-        
+
     shared_ptr<MultiFileList> file_list;
     unique_ptr<MultiFileReader> multi_file_reader;
     MultiFileReaderBindData reader_bind;
@@ -404,7 +413,7 @@ static void PxTableFunction(ClientContext &context, TableFunctionInput &data,
                                                global_state.reader->reader_data,
                                                output, nullptr);
 
-    
+
     if (output.size() > 0) {
       return;
     }

@@ -52,24 +52,35 @@ struct Variable {
     vector<string> values;
 
     size_t code_iterator;
+    size_t repetition_factor;
+    size_t repetition_counter;
 
     ~Variable() {
         std::cout << "Variable Destructor called for " << name << "\n";
     };
 
 
-    Variable(string p_name) :  name(p_name), code_iterator(0), codes(), values() {
+    Variable(string p_name) :  name(p_name), code_iterator(0), repetition_counter(0), repetition_factor(0), codes(), values() {
         std::cout << "Created variable " << name << ", " << code_iterator << "\n";
     };
-
-
 
     const string &GetName() { return name; };
 
     size_t CodeCount() { return codes.size(); };
     size_t ValueCount() { return values.size(); };
 
-    bool NextCode() {
+    string NextCode() {
+        if (repetition_counter > 0) {
+            repetition_counter--;
+            return codes[code_iterator];
+        }
+        repetition_counter = repetition_factor - 1;
+        IncrementCode();
+        return codes[code_iterator];
+    }
+
+    
+    bool IncrementCode() {
         if (code_iterator < (codes.size()-1)) {
             code_iterator++;
             return true;
@@ -82,6 +93,11 @@ struct Variable {
         return codes[code_iterator];
     }
 
+
+    void SetRepetitionFactor(size_t p_rep_factor) {
+        repetition_factor = p_rep_factor;
+        repetition_counter = p_rep_factor;
+    }
 
 };
 
@@ -104,26 +120,8 @@ struct PxFile {
         variables.emplace_back(name);
     }
 
-    void IncrementVariableCode(size_t var_idx) {
-
-        Variable& var = variables[var_idx];
-
-        if (var_idx == 0) {
-            if (var.NextCode()) {
-                return;
-            }
-            throw duckdb::InternalException("Iterated through all codes for all variables");
-        }
-
-        if (!variables[var_idx].NextCode()) {
-            IncrementVariableCode(var_idx - 1);
-            return;
-        }
-    }
-
     string GetValueForVariable(size_t var_idx) {
-        string rtrn = variables[var_idx].CurrentCode();
-        return rtrn;
+        return variables[var_idx].NextCode();
     }
 
 };
@@ -135,7 +133,7 @@ size_t ParseList(const char* data,vector<string> &result, char end = ';') {
     size_t idx = 0;
     bool quote_open = false;
     char c = end;
-    string element;
+    string element = "";
 
     while ((c = data[idx]) != end) {
         idx++;
