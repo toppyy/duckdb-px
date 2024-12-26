@@ -129,14 +129,15 @@ struct PxReader {
             return;
         }
 
-        std::cout << "Read started for " << column_ids.size() << " columns.\n";
+        std::cout << "Read started for " << column_ids.size() << " columns. Data chunk has " << output.ColumnCount() << " columns.\n";
 
         idx_t out_idx = 0;
         column_t variables = pxfile.variable_count, col_idx = 0;
 
         while (true) {
-            for (size_t i = 0; i < column_ids.size(); i++) {
-                col_idx = column_ids[i];
+            for (size_t i = 0; i <= variables; i++) {
+                // col_idx = column_ids[i];
+                col_idx = i;
                 if (col_idx == variables) {
                     FlatVector::GetData<string_t>(*read_vecs[variables])[out_idx] = GetNextValue();
                     continue;
@@ -153,10 +154,15 @@ struct PxReader {
                 break;
             }
         }
-        // std::cout << "While done.\n";
-        for (size_t i = 0; i < column_ids.size(); i++) {
-            output.data[column_ids[i]].Reference(*read_vecs[i]);
+
+        for (size_t i = 0; i <= variables; i++) {
+            output.data[i].Reference(*read_vecs[i]);
         }
+
+
+        // for (size_t i = 0; i < column_ids.size(); i++) {
+            // output.data[column_ids[i]].Reference(*read_vecs[i]);
+        // }
 
         output.SetCardinality(out_idx);
         std::cout << "Read done.\n";
