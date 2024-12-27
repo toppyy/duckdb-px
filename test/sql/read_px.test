@@ -1,0 +1,47 @@
+# name: test/sql/read_px.test
+# description: test read_px
+# group: [read_px]
+
+
+require px
+
+statement ok
+PRAGMA enable_verification
+
+# Describe 
+query II
+SELECT column_name, column_type FROM (DESCRIBE FROM read_px('test/statfin_akay_pxt_001.px'));
+----
+Toiminto	VARCHAR
+Tiedot	VARCHAR
+Sukupuoli	VARCHAR
+Vuosi	VARCHAR
+value	VARCHAR
+
+
+# Select COUNT(1)
+query I
+SELECT COUNT(1) AS N FROM read_px('test/statfin_akay_pxt_001.px');
+----
+768
+
+# DISTINCT 
+query I
+SELECT DISTINCT Sukupuoli FROM read_px('test/statfin_akay_pxt_001.px') ORDER BY Sukupuoli;
+----
+1
+2
+S
+
+# Select COUNT(1) vaerak
+query I
+SELECT COUNT(1) AS N FROM read_px('test/statfin_vaerak_pxt_11rc.px') WHERE CAST(vuosi AS INT) < 2023;
+----
+9006
+
+# Population of Finland in 1900 and 2000
+query I
+SELECT value AS population FROM read_px('test/statfin_vaerak_pxt_11rc.px') WHERE vuosi IN ('1900','2000') AND sukupuoli = 'SSS' ORDER BY CAST(value AS INT) DESC LIMIT 2;
+----
+5181115
+2655900
