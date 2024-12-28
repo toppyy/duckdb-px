@@ -94,6 +94,44 @@ struct Variable {
 
 };
 
+string ISO88591toUTF8(string original_string) {
+    string rtrn;
+    for (int i = 0; i < original_string.size(); i++) {
+
+        switch(original_string[i]) {
+                case static_cast<char>(0xe4): // ä
+                    rtrn += static_cast<char>(0xC3);
+                    rtrn += static_cast<char>(0xA4);
+                    break;
+                case static_cast<char>(0xf6): // ö
+                    rtrn += static_cast<char>(0xC3);
+                    rtrn += static_cast<char>(0xB6);
+                    break;
+                case static_cast<char>(0xe5): // å
+                    rtrn += static_cast<char>(0xC3);
+                    rtrn += static_cast<char>(0xA5);
+                    break;
+                case static_cast<char>(0xC4): // Ä
+                    rtrn += static_cast<char>(0xC3);
+                    rtrn += static_cast<char>(0x84);
+                    break;
+                case static_cast<char>(0xD6): // Ö
+                    rtrn += static_cast<char>(0xC3);
+                    rtrn += static_cast<char>(0x96);
+                    break;
+                case static_cast<char>(0xC5): // Å
+                    rtrn += static_cast<char>(0xC3);
+                    rtrn += static_cast<char>(0x85);
+                    break;
+                default:
+                   rtrn += original_string[i];
+        }
+    }
+    return rtrn;
+}
+
+
+
 struct PxFile {
     size_t variable_count;
     vector<Variable> variables;
@@ -114,6 +152,8 @@ struct PxFile {
 
 };
 
+
+
 size_t ParseList(const char* data,vector<string> &result, char end = ';') {
     // Expects a string which contains a list of quoted elements
     // Eg. "monkey","island","is","cool"
@@ -126,7 +166,7 @@ size_t ParseList(const char* data,vector<string> &result, char end = ';') {
     while ((c = data[idx]) != end) {
         idx++;
         if (c == '"') {
-            if (quote_open) result.push_back(element);
+            if (quote_open) result.push_back(ISO88591toUTF8(element));
             element = "";
             quote_open = !quote_open;
             continue;
@@ -136,7 +176,28 @@ size_t ParseList(const char* data,vector<string> &result, char end = ';') {
     return idx;
 }
 
+size_t FindVarName(const char* data, string &varname) {
+    // The variable is specified within brackets and quotes
+    // for example:
+    //      VALUES("somevariable")="val1","val2";
+    //      CODES("somevariable")="val1","val2";
 
+    size_t idx = 0;
+    char c = 0;
+
+
+    while ((c = data[idx++]) != '"') {};
+
+    string tmp;
+    while ((c = data[idx++]) != '"') {
+        tmp.push_back(c);
+    };
+
+    varname = ISO88591toUTF8(tmp);
+
+    return idx;
+
+}
 
 size_t ParseStubOrHeading(const char* data, PxFile &pxfile) {
     // Returns the number of variables listed in a STUB-declaration
@@ -152,25 +213,7 @@ size_t ParseStubOrHeading(const char* data, PxFile &pxfile) {
 }
 
 
-size_t FindVarName(const char* data, string &varname) {
-    // The variable is specified within brackets and quotes
-    // for example:
-    //      VALUES("somevariable")="val1","val2";
-    //      CODES("somevariable")="val1","val2";
 
-    size_t idx = 0;
-    char c = 0;
-
-    while ((c = data[idx++]) != '"') {};
-
-    while ((c = data[idx++]) != '"') {
-        varname.push_back(c);
-    };
-
-
-    return idx;
-
-}
 
 size_t ParseValues(const char* data, PxFile &pxfile) {
     // Values is a list of values associated with a variable

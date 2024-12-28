@@ -40,8 +40,14 @@ SELECT COUNT(1) AS N FROM read_px('test/statfin_vaerak_pxt_11rc.px') WHERE CAST(
 9006
 
 # Population of Finland in 1900 and 2000
-query I
-SELECT value AS population FROM read_px('test/statfin_vaerak_pxt_11rc.px') WHERE vuosi IN ('1900','2000') AND sukupuoli = 'SSS' ORDER BY CAST(value AS INT) DESC LIMIT 2;
+query II
+SELECT vuosi,value AS population
+FROM read_px('test/statfin_vaerak_pxt_11rc.px')
+WHERE
+	vuosi IN ('1900','2000')
+	AND sukupuoli = 'SSS'
+	AND ikä='SSS'
+ORDER BY vuosi;
 ----
-5181115
-2655900
+1900	2655900
+2000	5181115
