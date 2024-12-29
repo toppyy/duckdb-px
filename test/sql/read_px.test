@@ -51,3 +51,20 @@ ORDER BY vuosi;
 ----
 1900	2655900
 2000	5181115
+
+# Population of Sweden (from SCB) in 1900 and 2000
+query II
+SELECT year,value
+FROM read_px('test/SCB-BefolkningR1860N.px')
+WHERE
+	year IN ('1900','2000')
+	AND age = '50'
+ORDER BY year;
+----
+1900	48348
+2000	121322	
+
+
+
+
+

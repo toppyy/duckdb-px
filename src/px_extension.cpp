@@ -20,26 +20,6 @@
 
 namespace duckdb {
 
-inline void PxScalarFun(DataChunk &args, ExpressionState &state, Vector &result) {
-    auto &name_vector = args.data[0];
-    UnaryExecutor::Execute<string_t, string_t>(
-	    name_vector, result, args.size(),
-	    [&](string_t name) {
-			return StringVector::AddString(result, "Px "+name.GetString()+" 🐥");;
-        });
-}
-
-inline void PxOpenSSLVersionScalarFun(DataChunk &args, ExpressionState &state, Vector &result) {
-    auto &name_vector = args.data[0];
-    UnaryExecutor::Execute<string_t, string_t>(
-	    name_vector, result, args.size(),
-	    [&](string_t name) {
-			return StringVector::AddString(result, "Px " + name.GetString() +
-                                                     ", my linked OpenSSL version is " +
-                                                     OPENSSL_VERSION_TEXT );;
-        });
-}
-
 struct PxReader;
 
 
@@ -435,17 +415,8 @@ unique_ptr<GlobalTableFunctionState> PxGlobalInit(ClientContext &context, TableF
 
 
 static void LoadInternal(DatabaseInstance &instance) {
-    // Register a scalar function
-    auto px_scalar_function = ScalarFunction("px", {LogicalType::VARCHAR}, LogicalType::VARCHAR, PxScalarFun);
-    ExtensionUtil::RegisterFunction(instance, px_scalar_function);
-
-    // Register another scalar function
-    auto px_openssl_version_scalar_function = ScalarFunction("px_openssl_version", {LogicalType::VARCHAR},
-                                                LogicalType::VARCHAR, PxOpenSSLVersionScalarFun);
-    ExtensionUtil::RegisterFunction(instance, px_openssl_version_scalar_function);
 
     // Register table function
-
     auto px_table_function = TableFunction("read_px", {LogicalType::VARCHAR},  PxTableFunction,
                     PxBindFunction,  PxGlobalInit);
 
