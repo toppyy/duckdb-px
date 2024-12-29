@@ -68,6 +68,7 @@ struct PxReader {
     PxOptions options;
     size_t data_offset;
     size_t data_size;
+    size_t observations_read;
     const char* data;
 
 
@@ -105,7 +106,8 @@ struct PxReader {
     void Read(DataChunk &output, const vector<column_t> &column_ids) {
 
 
-        if (data_offset >= data_size) {
+        if (observations_read >= pxfile.observations) {
+            // observations_read = 0;
             return;
         }
 
@@ -123,7 +125,8 @@ struct PxReader {
             }
 
             out_idx++;
-            if (data_offset >= data_size) {
+            observations_read++;
+            if (observations_read >= pxfile.observations) {
                 break;
             }
 
@@ -147,7 +150,7 @@ struct PxReader {
     const vector<LogicalType> &GetTypes() { return return_types; }
 
     PxReader(ClientContext &context, const string filename_p, const PxOptions &options_p)
-        : pxfile(), data_offset(0), data_size(0), data(nullptr), read_vecs(), return_types(), names()
+        : pxfile(), data_offset(0), data_size(0), data(nullptr), read_vecs(), return_types(), names(), observations_read(0)
     {
         filename = filename_p;
         auto &fs = FileSystem::GetFileSystem(context);

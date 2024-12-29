@@ -63,11 +63,6 @@ bool Variable::IncrementCode() {
     return false;
 }
 
-string Variable::CurrentCode() {
-    return codes[code_iterator];
-}
-
-
 void Variable::SetRepetitionFactor(size_t p_rep_factor) {
     repetition_factor = p_rep_factor;
     repetition_counter = p_rep_factor;
@@ -113,10 +108,7 @@ string ISO88591toUTF8(string original_string) {
 
 
 
-size_t variable_count;
-vector<Variable> variables;
-
-PxFile::PxFile() : variable_count(0), variables() {
+PxFile::PxFile() : variable_count(0), variables(), observations(1) {
     variables.reserve(10);
 }
 
@@ -127,6 +119,10 @@ void PxFile::AddVariable(string name) {
 
 string PxFile::GetValueForVariable(size_t var_idx) {
     return variables[var_idx].NextCode();
+}
+
+void PxFile::AddVariableCodeCount(size_t code_count) {
+    observations *= code_count;
 }
 
 
@@ -239,6 +235,8 @@ size_t ParseCodes(const char* data, PxFile &pxfile) {
     if (!var_found) throw duckdb::BinderException("Codes specified for a variable not found in STUB/HEADING");
 
     idx += ParseList(data + idx, pxfile.variables[var_idx].codes);
+
+    pxfile.AddVariableCodeCount(pxfile.variables[var_idx].CodeCount());
 
     return idx;
 }

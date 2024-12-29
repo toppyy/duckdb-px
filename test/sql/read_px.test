@@ -19,11 +19,19 @@ Vuosi	VARCHAR
 value	VARCHAR
 
 
-# Select COUNT(1)
+# COUNT(1): 1
 query I
 SELECT COUNT(1) AS N FROM read_px('test/statfin_akay_pxt_001.px');
 ----
 768
+
+
+# COUNT(1): 2
+query I
+SELECT COUNT(1) AS N FROM read_px('test/SCB-BefolkningR1860N.px');
+----
+18204
+
 
 # DISTINCT 
 query I

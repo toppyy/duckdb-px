@@ -30,7 +30,6 @@ struct Variable {
 
     string NextCode();
     bool IncrementCode();
-    string CurrentCode();
 
     void SetRepetitionFactor(size_t p_rep_factor);
 
@@ -38,12 +37,14 @@ struct Variable {
 
 struct PxFile {
     size_t variable_count;
+    size_t observations;
     vector<Variable> variables;
     
     PxFile();
 
     void AddVariable(string name);
     string GetValueForVariable(size_t var_idx);
+    void AddVariableCodeCount(size_t code_count);
 
 };
 
