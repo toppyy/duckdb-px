@@ -72,6 +72,11 @@ ORDER BY year;
 1900	48348
 2000	121322	
 
+# Non-numeric values = NULL
+query II
+SELECT COUNT(value),COUNT(1) FROM read_px('test/statfin_tyonv_eckero.px');
+----
+192	253
 
 
 
