@@ -81,7 +81,9 @@ struct PxReader {
         return false;
     }
 
-
+    bool IsNumeric(char c) {
+        return c >= '0' && c <= '9';
+    }
 
     void SkipWhiteSpace() {
         while(data_offset < data_size) {
@@ -114,11 +116,26 @@ struct PxReader {
         idx_t out_idx = 0;
         column_t variables = pxfile.variable_count, col_idx = 0;
 
+        string val;
+        float fval;
+
         while (true) {
             for (size_t i = 0; i <= variables; i++) {
                 col_idx = i;
                 if (col_idx == variables) {
-                    FlatVector::GetData<string_t>(*read_vecs[variables])[out_idx] = GetNextValue();
+                    val = GetNextValue();
+                    if (!IsNumeric(val[0])) {
+                        FlatVector::Validity(*read_vecs[variables]).SetInvalid(out_idx);
+                        continue;
+                    };
+                    try {
+                        fval = std::stof(val);
+                    } catch (const std::invalid_argument& e) {
+                        std::cerr << "Invalid argument: " << e.what() << std::endl;
+                    } catch (const std::out_of_range& e) {
+                        std::cerr << "Out of range: " << e.what() << std::endl;
+                    }
+                    FlatVector::GetData<float>(*read_vecs[variables])[out_idx] = fval;
                     continue;
                 }
                 FlatVector::GetData<string_t>(*read_vecs[col_idx])[out_idx] = pxfile.GetValueForVariable(col_idx);
@@ -232,12 +249,9 @@ struct PxReader {
         }
 
         // Variable(s) for values
-        read_vecs.push_back( make_uniq<Vector>(LogicalType::VARCHAR) );
-        return_types.push_back(LogicalType::VARCHAR);
+        read_vecs.push_back( make_uniq<Vector>(LogicalType::FLOAT) );
+        return_types.push_back(LogicalType::FLOAT);
         names.push_back("value");
-
-        D_ASSERT(pxfile.variable_count >= 2);
-
     }
 
     static unique_ptr<PxUnionData> StoreUnionReader(unique_ptr<PxReader> scan_p, idx_t file_idx) {

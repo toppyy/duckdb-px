@@ -16,7 +16,7 @@ Toiminto	VARCHAR
 Tiedot	VARCHAR
 Sukupuoli	VARCHAR
 Vuosi	VARCHAR
-value	VARCHAR
+value	FLOAT
 
 
 # COUNT(1): 1
@@ -49,7 +49,7 @@ SELECT COUNT(1) AS N FROM read_px('test/statfin_vaerak_pxt_11rc.px') WHERE CAST(
 
 # Population of Finland in 1900 and 2000
 query II
-SELECT vuosi,value AS population
+SELECT vuosi,CAST(value AS INT) AS population
 FROM read_px('test/statfin_vaerak_pxt_11rc.px')
 WHERE
 	vuosi IN ('1900','2000')
@@ -62,7 +62,7 @@ ORDER BY vuosi;
 
 # Population of Sweden (from SCB) in 1900 and 2000
 query II
-SELECT year,value
+SELECT year,CAST(value AS INT)
 FROM read_px('test/SCB-BefolkningR1860N.px')
 WHERE
 	year IN ('1900','2000')
