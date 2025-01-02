@@ -138,7 +138,7 @@ struct PxReader {
                     FlatVector::GetData<float>(*read_vecs[variables])[out_idx] = fval;
                     continue;
                 }
-                FlatVector::GetData<string_t>(*read_vecs[col_idx])[out_idx] = pxfile.GetValueForVariable(col_idx);
+                FlatVector::GetData<string_t>(*read_vecs[col_idx])[out_idx] = StringVector::AddString(*read_vecs[col_idx], pxfile.GetValueForVariable(col_idx));
             }
 
             out_idx++;
