@@ -37,35 +37,20 @@ PxKeyword ParseKeyword(const char* data) {
 
 };
 
-Variable::Variable(string p_name) :  name(p_name), code_iterator(0), repetition_counter(0), repetition_factor(0), codes(), values() {};
+Variable::Variable(string p_name) :  name(p_name), repetition_factor(0), codes(), values() {};
 
 const string& Variable::GetName() { return name; };
 
 size_t Variable::CodeCount() { return codes.size(); };
 size_t Variable::ValueCount() { return values.size(); };
 
-string Variable::NextCode() {
-    if (repetition_counter > 0) {
-        repetition_counter--;
-        return codes[code_iterator];
-    }
-    repetition_counter = repetition_factor - 1;
-    IncrementCode();
-    return codes[code_iterator];
+string Variable::NextCode(size_t row_idx) {
+    size_t i = row_idx % (repetition_factor * codes.size());
+    return codes[i / repetition_factor];
 }
     
-bool Variable::IncrementCode() {
-    if (code_iterator < (codes.size()-1)) {
-        code_iterator++;
-        return true;
-    }
-    code_iterator = 0;
-    return false;
-}
-
 void Variable::SetRepetitionFactor(size_t p_rep_factor) {
     repetition_factor = p_rep_factor;
-    repetition_counter = p_rep_factor;
 }
 
 
@@ -117,8 +102,8 @@ void PxFile::AddVariable(string name) {
     variables.emplace_back(name);
 }
 
-string PxFile::GetValueForVariable(size_t var_idx) {
-    return variables[var_idx].NextCode();
+string PxFile::GetValueForVariable(size_t var_idx, size_t row_idx) {
+    return variables[var_idx].NextCode(row_idx);
 }
 
 void PxFile::AddVariableCodeCount(size_t code_count) {

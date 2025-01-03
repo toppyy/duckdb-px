@@ -16,10 +16,7 @@ struct Variable {
     string name;
     vector<string> codes;
     vector<string> values;
-
-    size_t code_iterator;
     size_t repetition_factor;
-    size_t repetition_counter;
 
     Variable(string p_name);
 
@@ -28,9 +25,7 @@ struct Variable {
     size_t CodeCount();
     size_t ValueCount();
 
-    string NextCode();
-    bool IncrementCode();
-
+    string NextCode(size_t row_idx);
     void SetRepetitionFactor(size_t p_rep_factor);
 
 };
@@ -43,7 +38,7 @@ struct PxFile {
     PxFile();
 
     void AddVariable(string name);
-    string GetValueForVariable(size_t var_idx);
+    string GetValueForVariable(size_t var_idx, size_t row_idx);
     void AddVariableCodeCount(size_t code_count);
 
 };

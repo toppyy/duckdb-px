@@ -120,8 +120,7 @@ struct PxReader {
         float fval;
 
         while (true) {
-            for (size_t i = 0; i <= variables; i++) {
-                col_idx = i;
+            for (size_t col_idx = 0; col_idx <= variables; col_idx++) {
                 if (col_idx == variables) {
                     val = GetNextValue();
                     if (!IsNumeric(val[0])) {
@@ -138,7 +137,7 @@ struct PxReader {
                     FlatVector::GetData<float>(*read_vecs[variables])[out_idx] = fval;
                     continue;
                 }
-                FlatVector::GetData<string_t>(*read_vecs[col_idx])[out_idx] = StringVector::AddString(*read_vecs[col_idx], pxfile.GetValueForVariable(col_idx));
+                FlatVector::GetData<string_t>(*read_vecs[col_idx])[out_idx] = StringVector::AddString(*read_vecs[col_idx], pxfile.GetValueForVariable(col_idx, observations_read));
             }
 
             out_idx++;
