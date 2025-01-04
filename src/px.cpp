@@ -5,11 +5,6 @@
 #include "duckdb.hpp"
 #include "px.hpp"
 
-
-using std::string;
-using std::vector;
-
-
 PxKeyword ParseKeyword(const char* data) {
 
     if (std::strncmp(data, "STUB=", 5) == 0) {
@@ -37,14 +32,14 @@ PxKeyword ParseKeyword(const char* data) {
 
 };
 
-Variable::Variable(string p_name) :  name(p_name), repetition_factor(0), codes(), values() {};
+Variable::Variable(std::string p_name) :  name(p_name), repetition_factor(0), codes(), values() {};
 
-const string& Variable::GetName() { return name; };
+const std::string& Variable::GetName() { return name; };
 
 size_t Variable::CodeCount() { return codes.size(); };
 size_t Variable::ValueCount() { return values.size(); };
 
-string Variable::NextCode(size_t row_idx) {
+std::string Variable::NextCode(size_t row_idx) {
     size_t i = row_idx % (repetition_factor * codes.size());
     return codes[i / repetition_factor];
 }
@@ -54,8 +49,8 @@ void Variable::SetRepetitionFactor(size_t p_rep_factor) {
 }
 
 
-string ISO88591toUTF8(string original_string) {
-    string rtrn;
+std::string ISO88591toUTF8(std::string original_string) {
+    std::string rtrn;
     for (int i = 0; i < original_string.size(); i++) {
 
         switch(original_string[i]) {
@@ -97,12 +92,12 @@ PxFile::PxFile() : variable_count(0), variables(), observations(1) {
     variables.reserve(10);
 }
 
-void PxFile::AddVariable(string name) {
+void PxFile::AddVariable(std::string name) {
     variable_count++;
     variables.emplace_back(name);
 }
 
-string PxFile::GetValueForVariable(size_t var_idx, size_t row_idx) {
+std::string PxFile::GetValueForVariable(size_t var_idx, size_t row_idx) {
     return variables[var_idx].NextCode(row_idx);
 }
 
@@ -112,14 +107,14 @@ void PxFile::AddVariableCodeCount(size_t code_count) {
 
 
 
-size_t ParseList(const char* data,vector<string> &result, char end) {
+size_t ParseList(const char* data, std::vector<std::string> &result, char end) {
     // Expects a string which contains a list of quoted elements
     // Eg. "monkey","island","is","cool"
 
     size_t idx = 0;
     bool quote_open = false;
     char c = end;
-    string element = "";
+    std::string element = "";
 
     while ((c = data[idx]) != end) {
         idx++;
@@ -134,7 +129,7 @@ size_t ParseList(const char* data,vector<string> &result, char end) {
     return idx;
 }
 
-size_t FindVarName(const char* data, string &varname) {
+size_t FindVarName(const char* data, std::string &varname) {
     // The variable is specified within brackets and quotes
     // for example:
     //      VALUES("somevariable")="val1","val2";
@@ -146,7 +141,7 @@ size_t FindVarName(const char* data, string &varname) {
 
     while ((c = data[idx++]) != '"') {};
 
-    string tmp;
+    std::string tmp;
     while ((c = data[idx++]) != '"') {
         tmp.push_back(c);
     };
@@ -161,7 +156,7 @@ size_t ParseStubOrHeading(const char* data, PxFile &pxfile) {
     // Returns the number of variables listed in a STUB-declaration
     // for example STUB="var1","var2";
 
-    vector<string> varnames;
+    std::vector<std::string> varnames;
     size_t inc = ParseList(data, varnames);
 
     for (auto name : varnames) {
@@ -176,7 +171,7 @@ size_t ParseStubOrHeading(const char* data, PxFile &pxfile) {
 size_t ParseValues(const char* data, PxFile &pxfile) {
     // Values is a list of values associated with a variable
 
-    string varname;
+    std::string varname;
     size_t idx = FindVarName(data, varname);
 
     size_t var_idx = 0;
@@ -202,7 +197,7 @@ size_t ParseValues(const char* data, PxFile &pxfile) {
 size_t ParseCodes(const char* data, PxFile &pxfile) {
     // Codes is a list of values associated with a variable
 
-    string varname;
+    std::string varname;
     size_t idx = FindVarName(data, varname);
 
     size_t var_idx = 0;

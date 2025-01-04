@@ -1,6 +1,3 @@
-using std::string;
-using std::vector;
-
 
 enum class PxKeyword : uint8_t  {
     UNKNOWN     = 0,
@@ -13,19 +10,19 @@ enum class PxKeyword : uint8_t  {
 
 
 struct Variable {
-    string name;
-    vector<string> codes;
-    vector<string> values;
+    std::string name;
+    std::vector<std::string> codes;
+    std::vector<std::string> values;
     size_t repetition_factor;
 
-    Variable(string p_name);
+    Variable(std::string p_name);
 
-    const string &GetName();
+    const std::string &GetName();
 
     size_t CodeCount();
     size_t ValueCount();
 
-    string NextCode(size_t row_idx);
+    std::string NextCode(size_t row_idx);
     void SetRepetitionFactor(size_t p_rep_factor);
 
 };
@@ -33,21 +30,21 @@ struct Variable {
 struct PxFile {
     size_t variable_count;
     size_t observations;
-    vector<Variable> variables;
+    std::vector<Variable> variables;
     
     PxFile();
 
-    void AddVariable(string name);
-    string GetValueForVariable(size_t var_idx, size_t row_idx);
+    void AddVariable(std::string name);
+    std::string GetValueForVariable(size_t var_idx, size_t row_idx);
     void AddVariableCodeCount(size_t code_count);
 
 };
 
 
 /* Parser helpers */
-string ISO88591toUTF8(string original_string);
-size_t ParseList(const char* data,vector<string> &result, char end = ';');
-size_t FindVarName(const char* data, string &varname);
+std::string ISO88591toUTF8(std::string original_string);
+size_t ParseList(const char* data, std::vector<std::string> &result, char end = ';');
+size_t FindVarName(const char* data, std::string &varname);
 PxKeyword ParseKeyword(const char* data);
 
 /* Parse specific keywords */
