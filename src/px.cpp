@@ -27,6 +27,10 @@ PxKeyword ParseKeyword(const char* data) {
         return PxKeyword::DATA;
     }
 
+    if (std::strncmp(data, "DECIMALS=", 9) == 0) {
+        return PxKeyword::DECIMALS;
+    }
+
 
     return PxKeyword::UNKNOWN;
 
@@ -234,6 +238,28 @@ size_t ParseCodes(const char* data, PxFile &pxfile) {
     idx += ParseList(data + idx, pxfile.GetVariableCodes(var_idx));
 
     pxfile.AddVariableCodeCount(pxfile.GetVariable(var_idx).CodeCount());
+
+    return idx;
+}
+
+
+size_t ParseDecimals(const char* data, int& decimals) {
+
+    size_t idx = 9;
+    std::string s_decimals;
+
+    while (data[idx] >= '0' && data[idx] <'9') {
+        s_decimals += data[idx];
+        idx++;
+    }
+
+    try {
+        decimals = std::stoi(s_decimals);
+    } catch (const std::invalid_argument& e) {
+        std::cerr << "Invalid argument: " << e.what() << std::endl;
+    } catch (const std::out_of_range& e) {
+        std::cerr << "Out of range: " << e.what() << std::endl;
+    }
 
     return idx;
 }

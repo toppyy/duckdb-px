@@ -71,6 +71,8 @@ struct PxReader {
     size_t observations_read;
     const char* data;
 
+    std::string value_type;
+
 
 
     bool IsWhiteSpace(char c) {
@@ -105,6 +107,41 @@ struct PxReader {
     }
 
 
+    void AssignValue(size_t variable, size_t out_idx, const string& val) {
+        if (value_type == "float") {
+            AssignFloatValue(variable, out_idx, val);
+            return;
+        }
+
+        AssignIntegerValue(variable, out_idx, val);
+    }
+
+    void AssignFloatValue(size_t variable, size_t out_idx, const string& val) {
+        float fval;
+
+        try {
+            fval = std::stof(val);
+        } catch (const std::invalid_argument& e) {
+            std::cerr << "Invalid argument: " << e.what() << std::endl;
+        } catch (const std::out_of_range& e) {
+            std::cerr << "Out of range: " << e.what() << std::endl;
+        }
+        FlatVector::GetData<float>(*read_vecs[variable])[out_idx] = fval;
+    }
+
+    void AssignIntegerValue(size_t variable, size_t out_idx, const string& val) {
+        int32_t ival;        
+        try {
+            ival = std::stoi(val);
+        } catch (const std::invalid_argument& e) {
+            std::cerr << "Invalid argument: " << e.what() << std::endl;
+        } catch (const std::out_of_range& e) {
+            std::cerr << "Out of range: " << e.what() << std::endl;
+        }
+        FlatVector::GetData<int32_t>(*read_vecs[variable])[out_idx] = ival;
+    }
+
+
     void Read(DataChunk &output, const vector<column_t> &column_ids) {
 
         if (observations_read >= pxfile.observations) {
@@ -117,25 +154,17 @@ struct PxReader {
         column_t variables = pxfile.variable_count;
         idx_t out_idx = 0;
         string val;
-        float fval;
-        
+
         while (true) {
             for (size_t col_idx = 0; col_idx <= variables; col_idx++) {
                 if (col_idx == variables) {
                     val = GetNextValue();
-                    if (!IsNumeric(val[0])) {
+                    if (!IsNumeric(val[0])) { // TODO handle negative values
                         FlatVector::Validity(*read_vecs[variables]).SetInvalid(out_idx);
                         continue;
                     };
-                    try {
-                        fval = std::stof(val);
-                    } catch (const std::invalid_argument& e) {
-                        std::cerr << "Invalid argument: " << e.what() << std::endl;
-                    } catch (const std::out_of_range& e) {
-                        std::cerr << "Out of range: " << e.what() << std::endl;
-                    }
                     FlatVector::Validity(*read_vecs[variables]).SetValid(out_idx);
-                    FlatVector::GetData<float>(*read_vecs[variables])[out_idx] = fval;
+                    AssignValue(variables, out_idx, val);
                     continue;
                 }
                 FlatVector::GetData<string_t>(*read_vecs[col_idx])[out_idx] = StringVector::AddString(*read_vecs[col_idx], pxfile.GetValueForVariable(col_idx, observations_read));
@@ -167,7 +196,7 @@ struct PxReader {
     const vector<LogicalType> &GetTypes() { return return_types; }
 
     PxReader(ClientContext &context, const string filename_p, const PxOptions &options_p)
-        : pxfile(), data_offset(0), data_size(0), data(nullptr), read_vecs(), return_types(), names(), observations_read(0)
+        : pxfile(), data_offset(0), data_size(0), data(nullptr), read_vecs(), return_types(), names(), observations_read(0), value_type("float")
     {
         filename = filename_p;
         auto &fs = FileSystem::GetFileSystem(context);
@@ -186,12 +215,29 @@ struct PxReader {
 
         size_t idx = 0;
 
+        int decimals = 3;
+
         PxKeyword current_keyword = PxKeyword::UNKNOWN;
 
         do {
-            char c = data[idx];
+            while (IsWhiteSpace(data[idx])) {
+                idx++;
+            };
 
             current_keyword = ParseKeyword(data + idx);
+
+            if (current_keyword == PxKeyword::UNKNOWN) {
+                // The keyword did not match, fast-forward to next keyword
+                // so that "DECIMALS" is not found within "SHOWDECIMALS", for example
+                while (data[idx++] != ';') {
+                    if (idx >= data_size) {
+                        throw BinderException("Reached EOF when parsing keywords");
+                        return;
+                    }
+                };
+                idx++;
+                continue;
+            }
 
             if (current_keyword == PxKeyword::DATA) break;
 
@@ -200,6 +246,11 @@ struct PxReader {
                 ( current_keyword == PxKeyword::HEADING )
             ) {
                 idx += ParseStubOrHeading(data + idx, pxfile);
+                continue;
+            }
+
+            if (current_keyword == PxKeyword::DECIMALS) {
+                idx += ParseDecimals(data + idx, decimals);
                 continue;
             }
 
@@ -236,7 +287,6 @@ struct PxReader {
             }
 
             read_vecs.push_back( make_uniq<Vector>(LogicalType::VARCHAR) );
-
             return_types.push_back(LogicalType::VARCHAR);
             names.push_back(var.GetName());
         }
@@ -249,9 +299,18 @@ struct PxReader {
         }
 
         // Variable(s) for values
-        read_vecs.push_back( make_uniq<Vector>(LogicalType::FLOAT) );
-        return_types.push_back(LogicalType::FLOAT);
         names.push_back("value");
+        if (decimals > 0) {
+            value_type = "float";
+            read_vecs.push_back( make_uniq<Vector>(LogicalType::FLOAT) );
+            return_types.push_back(LogicalType::FLOAT);
+            return;
+        }
+
+        value_type = "int";
+        read_vecs.push_back( make_uniq<Vector>(LogicalType::INTEGER) );
+        return_types.push_back(LogicalType::INTEGER);
+        
     }
 
     static unique_ptr<PxUnionData> StoreUnionReader(unique_ptr<PxReader> scan_p, idx_t file_idx) {
@@ -303,7 +362,6 @@ struct PxBindData : FunctionData {
 
     unique_ptr<FunctionData> Copy() const override {
         D_ASSERT(false); // FIXME
-        //   auto bind_data = make_uniq<AvroBindData>();
         return nullptr;
     }
 

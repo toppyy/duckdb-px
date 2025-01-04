@@ -5,7 +5,8 @@ enum class PxKeyword : uint8_t  {
     HEADING     = 2,
     VALUES      = 3,
     CODES       = 4,
-    DATA        = 5
+    DATA        = 5,
+    DECIMALS    = 6
 };
 
 
@@ -66,3 +67,4 @@ PxKeyword ParseKeyword(const char* data);
 size_t ParseStubOrHeading(const char* data, PxFile &pxfile);
 size_t ParseValues(const char* data, PxFile &pxfile);
 size_t ParseCodes(const char* data, PxFile &pxfile);
+size_t ParseDecimals(const char* data, int &decimals);

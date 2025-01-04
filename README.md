@@ -2,10 +2,22 @@
 
 This DuckDB extension allows you read [Px-files](https://www.scb.se/en/services/statistical-programs-for-px-files/px-file-format/). `.px` is file format used to publish and distribute (official) statistics. For example, the statistical offices of sweden, denmark and finland distribute data in this format (among others).
 
-After a build/install, you an query px-files:
+## Usage
+
+After a build/install, you can write arbitrary SQL-queries over px-files with the `read_px` function:
 ```sql
-D SELECT * FROM read_px('your_dataset.px');
+SELECT * FROM read_px('your_dataset.px');
 ```
+## Schema 
+
+The function returns all variables defined with keywords `STUB` or `HEADING` as varchar-columns. The actual values for the these columns are derived from associated `CODE`-keyword definitions. 
+
+Data under the `DATA`-keyword are represented in a single column called `value` which is an integer or a decimal.
+
+The type of `value`-field is a guess based on the `DECIMALS`-keyword.
+
+- If DECIMALS = 0, the type is INTEGER
+- If DECIMALS > 0, the type is DECIMAL(17,*x*) where *x* is the value of DECIMALS
 
 ## Building
 
@@ -14,17 +26,6 @@ Now to build the extension, run:
 ```sh
 make
 ```
-The main binaries that will be built are:
-```sh
-./build/release/duckdb
-./build/release/test/unittest
-./build/release/extension/px/px.duckdb_extension
-
-```
-- `duckdb` is the binary for the duckdb shell with the extension code automatically loaded.
-- `unittest` is the test runner of duckdb. Again, the extension is already linked into the binary.
-- `px.duckdb_extension` is the loadable binary as it would be distributed.
-
 ## Running the extension
 To run the extension code, simply start the shell with `./build/release/duckdb`.
 
