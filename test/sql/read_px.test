@@ -10,7 +10,7 @@ PRAGMA enable_verification
 
 # Describe 
 query II
-SELECT column_name, column_type FROM (DESCRIBE FROM read_px('test/statfin_akay_pxt_001.px'));
+SELECT column_name, column_type FROM (DESCRIBE FROM read_px('test/data/statfin_akay_pxt_001.px'));
 ----
 Toiminto	VARCHAR
 Tiedot	VARCHAR
@@ -21,21 +21,21 @@ value	FLOAT
 
 # COUNT(1): 1
 query I
-SELECT COUNT(1) AS N FROM read_px('test/statfin_akay_pxt_001.px');
+SELECT COUNT(1) AS N FROM read_px('test/data/statfin_akay_pxt_001.px');
 ----
 768
 
 
 # COUNT(1): 2
 query I
-SELECT COUNT(1) AS N FROM read_px('test/SCB-BefolkningR1860N.px');
+SELECT COUNT(1) AS N FROM read_px('test/data/SCB-BefolkningR1860N.px');
 ----
 18204
 
 
 # DISTINCT 
 query I
-SELECT DISTINCT Sukupuoli FROM read_px('test/statfin_akay_pxt_001.px') ORDER BY Sukupuoli;
+SELECT DISTINCT Sukupuoli FROM read_px('test/data/statfin_akay_pxt_001.px') ORDER BY Sukupuoli;
 ----
 1
 2
@@ -43,14 +43,14 @@ S
 
 # Select COUNT(1) vaerak
 query I
-SELECT COUNT(1) AS N FROM read_px('test/statfin_vaerak_pxt_11rc.px') WHERE CAST(vuosi AS INT) < 2023;
+SELECT COUNT(1) AS N FROM read_px('test/data/statfin_vaerak_pxt_11rc.px') WHERE CAST(vuosi AS INT) < 2023;
 ----
 9006
 
 # Population of Finland in 1900 and 2000
 query II
 SELECT vuosi,CAST(value AS INT) AS population
-FROM read_px('test/statfin_vaerak_pxt_11rc.px')
+FROM read_px('test/data/statfin_vaerak_pxt_11rc.px')
 WHERE
 	vuosi IN ('1900','2000')
 	AND sukupuoli = 'SSS'
@@ -63,7 +63,7 @@ ORDER BY vuosi;
 # Population of Sweden (from SCB) in 1900 and 2000
 query II
 SELECT year,CAST(value AS INT)
-FROM read_px('test/SCB-BefolkningR1860N.px')
+FROM read_px('test/data/SCB-BefolkningR1860N.px')
 WHERE
 	year IN ('1900','2000')
 	AND age = '50'
@@ -74,7 +74,7 @@ ORDER BY year;
 
 # Non-numeric values = NULL
 query II
-SELECT COUNT(value),COUNT(1) FROM read_px('test/statfin_tyonv_eckero.px');
+SELECT COUNT(value),COUNT(1) FROM read_px('test/data/statfin_tyonv_eckero.px');
 ----
 192	253
 
