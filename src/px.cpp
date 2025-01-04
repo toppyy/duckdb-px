@@ -48,6 +48,14 @@ void Variable::SetRepetitionFactor(size_t p_rep_factor) {
     repetition_factor = p_rep_factor;
 }
 
+std::vector<std::string>& Variable::GetCodes() {
+    return codes;
+}
+
+std::vector<std::string>& Variable::GetValues() {
+    return values;
+}
+
 
 std::string ISO88591toUTF8(std::string original_string) {
     std::string rtrn;
@@ -85,9 +93,6 @@ std::string ISO88591toUTF8(std::string original_string) {
     return rtrn;
 }
 
-
-
-
 PxFile::PxFile() : variable_count(0), variables(), observations(1) {
     variables.reserve(10);
 }
@@ -104,6 +109,18 @@ std::string PxFile::GetValueForVariable(size_t var_idx, size_t row_idx) {
 void PxFile::AddVariableCodeCount(size_t code_count) {
     observations *= code_count;
 }
+
+std::vector<std::string>& PxFile::GetVariableCodes(size_t var_idx) {
+    return variables[var_idx].GetCodes();    
+}
+
+std::vector<std::string>& PxFile::GetVariableValues(size_t var_idx) {
+    return variables[var_idx].GetValues();    
+}
+ 
+ Variable& PxFile::GetVariable(size_t var_idx) {
+    return variables[var_idx];
+ }
 
 
 
@@ -179,7 +196,7 @@ size_t ParseValues(const char* data, PxFile &pxfile) {
     char c = 0;
 
     while (var_idx < pxfile.variable_count) {
-        if (pxfile.variables[var_idx].GetName() == varname) {
+        if (pxfile.GetVariable(var_idx).GetName() == varname) {
             var_found = true;
             break;
         }
@@ -188,7 +205,7 @@ size_t ParseValues(const char* data, PxFile &pxfile) {
 
     if (!var_found) throw duckdb::BinderException("Values specified for a variable not found in STUB/HEADING");
 
-    idx += ParseList(data + idx, pxfile.variables[var_idx].values);
+    idx += ParseList(data + idx, pxfile.GetVariableValues(var_idx));
 
     return idx;
 }
@@ -205,7 +222,7 @@ size_t ParseCodes(const char* data, PxFile &pxfile) {
     char c = 0;
 
     while (var_idx < pxfile.variable_count) {
-        if (pxfile.variables[var_idx].GetName() == varname) {
+        if (pxfile.GetVariable(var_idx).GetName() == varname) {
             var_found = true;
             break;
         }
@@ -214,9 +231,9 @@ size_t ParseCodes(const char* data, PxFile &pxfile) {
 
     if (!var_found) throw duckdb::BinderException("Codes specified for a variable not found in STUB/HEADING");
 
-    idx += ParseList(data + idx, pxfile.variables[var_idx].codes);
+    idx += ParseList(data + idx, pxfile.GetVariableCodes(var_idx));
 
-    pxfile.AddVariableCodeCount(pxfile.variables[var_idx].CodeCount());
+    pxfile.AddVariableCodeCount(pxfile.GetVariable(var_idx).CodeCount());
 
     return idx;
 }

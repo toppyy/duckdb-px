@@ -229,7 +229,7 @@ struct PxReader {
         // Add variables
         for (size_t i = 0; i < pxfile.variable_count; i++) {
 
-            Variable& var = pxfile.variables[i];
+            Variable& var = pxfile.GetVariable(i);
 
             if (var.CodeCount() != var.ValueCount()) {
                 throw BinderException("Number of VALUES and CODES do not match!");
@@ -243,8 +243,8 @@ struct PxReader {
 
         size_t repetition_factor = 1, col_idx = pxfile.variable_count - 1;
         for (size_t i = 0; i < pxfile.variable_count; i++) {
-            pxfile.variables[col_idx].SetRepetitionFactor(repetition_factor);
-            repetition_factor *= pxfile.variables[col_idx].CodeCount();
+            pxfile.GetVariable(col_idx).SetRepetitionFactor(repetition_factor);
+            repetition_factor *= pxfile.GetVariable(col_idx).CodeCount();
             col_idx--;
         }
 

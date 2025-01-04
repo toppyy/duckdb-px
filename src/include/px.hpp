@@ -10,33 +10,48 @@ enum class PxKeyword : uint8_t  {
 
 
 struct Variable {
+
+public:
+    Variable(std::string p_name);
+
+public:
+    const std::string &GetName();
+    std::vector<std::string>& GetCodes();
+    std::vector<std::string>& GetValues();
+
+    size_t CodeCount();
+    size_t ValueCount();
+
+    void SetRepetitionFactor(size_t p_rep_factor);
+    std::string NextCode(size_t row_idx);
+
+private:
     std::string name;
     std::vector<std::string> codes;
     std::vector<std::string> values;
     size_t repetition_factor;
 
-    Variable(std::string p_name);
-
-    const std::string &GetName();
-
-    size_t CodeCount();
-    size_t ValueCount();
-
-    std::string NextCode(size_t row_idx);
-    void SetRepetitionFactor(size_t p_rep_factor);
-
 };
 
 struct PxFile {
-    size_t variable_count;
-    size_t observations;
-    std::vector<Variable> variables;
-    
+
+public:    
     PxFile();
 
+    size_t variable_count;
+    size_t observations;
+
+public:
     void AddVariable(std::string name);
-    std::string GetValueForVariable(size_t var_idx, size_t row_idx);
     void AddVariableCodeCount(size_t code_count);
+
+    std::string GetValueForVariable(size_t var_idx, size_t row_idx);
+    std::vector<std::string>& GetVariableCodes(size_t var_idx);
+    std::vector<std::string>& GetVariableValues(size_t var_idx);
+    Variable& GetVariable(size_t var_idx);
+
+private:
+    std::vector<Variable> variables;
 
 };
 
