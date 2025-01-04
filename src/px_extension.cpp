@@ -107,18 +107,18 @@ struct PxReader {
 
     void Read(DataChunk &output, const vector<column_t> &column_ids) {
 
-
         if (observations_read >= pxfile.observations) {
-            // observations_read = 0;
             return;
         }
 
+        // There are actually variables + 1 vectors in the output
+        // pxfile.variable_count only counts for variables excl. "value"
+        // which is always present
+        column_t variables = pxfile.variable_count;
         idx_t out_idx = 0;
-        column_t variables = pxfile.variable_count, col_idx = 0;
-
         string val;
         float fval;
-
+        
         while (true) {
             for (size_t col_idx = 0; col_idx <= variables; col_idx++) {
                 if (col_idx == variables) {
@@ -134,6 +134,7 @@ struct PxReader {
                     } catch (const std::out_of_range& e) {
                         std::cerr << "Out of range: " << e.what() << std::endl;
                     }
+                    FlatVector::Validity(*read_vecs[variables]).SetValid(out_idx);
                     FlatVector::GetData<float>(*read_vecs[variables])[out_idx] = fval;
                     continue;
                 }
