@@ -1,21 +1,13 @@
-# Px
+# DuckDB-Px
 
-This repository is based on https://github.com/duckdb/extension-template, check it out if you want to build and ship your own DuckDB extension.
+This DuckDB extension allows you read [Px-files](https://www.scb.se/en/services/statistical-programs-for-px-files/px-file-format/). `.px` is file format used to publish and distribute (official) statistics. For example, the statistical offices of sweden, denmark and finland distribute data in this format (among others).
 
----
-
-This extension, Px, allow you to ... <extension_goal>.
-
+After a build/install, you an query px-files:
+```sql
+D SELECT * FROM read_px('your_dataset.px');
+```
 
 ## Building
-### Managing dependencies
-DuckDB extensions uses VCPKG for dependency management. Enabling VCPKG is very simple: follow the [installation instructions](https://vcpkg.io/en/getting-started) or just run the following:
-```shell
-git clone https://github.com/Microsoft/vcpkg.git
-./vcpkg/bootstrap-vcpkg.sh
-export VCPKG_TOOLCHAIN_PATH=`pwd`/vcpkg/scripts/buildsystems/vcpkg.cmake
-```
-Note: VCPKG is only required for extensions that want to rely on it for dependency management. If you want to develop an extension without dependencies, or want to do your own dependency management, just skip this step. Note that the example extension uses VCPKG to build with a dependency for instructive purposes, so when skipping this step the build may not work without removing the dependency.
 
 ### Build steps
 Now to build the extension, run:
@@ -27,6 +19,7 @@ The main binaries that will be built are:
 ./build/release/duckdb
 ./build/release/test/unittest
 ./build/release/extension/px/px.duckdb_extension
+
 ```
 - `duckdb` is the binary for the duckdb shell with the extension code automatically loaded.
 - `unittest` is the test runner of duckdb. Again, the extension is already linked into the binary.
@@ -35,16 +28,7 @@ The main binaries that will be built are:
 ## Running the extension
 To run the extension code, simply start the shell with `./build/release/duckdb`.
 
-Now we can use the features from the extension directly in DuckDB. The template contains a single scalar function `px()` that takes a string arguments and returns a string:
-```
-D select px('Jane') as result;
-┌───────────────┐
-│    result     │
-│    varchar    │
-├───────────────┤
-│ Px Jane 🐥 │
-└───────────────┘
-```
+Now we can use the features from the extension directly in DuckDB.
 
 ## Running the tests
 Different tests can be created for DuckDB extensions. The primary way of testing DuckDB extensions should be the SQL tests in `./test/sql`. These SQL tests can be run using:
@@ -84,3 +68,7 @@ After running these steps, you can install and load your extension using the reg
 INSTALL px
 LOAD px
 ```
+
+----
+
+This repository is based on https://github.com/duckdb/extension-template, check it out if you want to build and ship your own DuckDB extension.
