@@ -198,7 +198,7 @@ struct PxReader {
     PxReader(ClientContext &context, const string filename_p, const PxOptions &options_p)
         : pxfile(), data_offset(0), data_size(0), data(nullptr), read_vecs(), return_types(), names(), observations_read(0), value_type("float")
     {
-        filename = filename_p;
+		filename = filename_p;
         auto &fs = FileSystem::GetFileSystem(context);
         if (!fs.FileExists(filename)) {
             throw InvalidInputException("PX-file %s not found", filename);
@@ -313,46 +313,24 @@ struct PxReader {
         
     }
 
-    static unique_ptr<PxUnionData> StoreUnionReader(unique_ptr<PxReader> scan_p, idx_t file_idx) {
-        auto data = make_uniq<PxUnionData>();
-        data->file_name = scan_p->GetFileName();
-        data->options = scan_p->options;
-        data->names = scan_p->GetNames();
-        data->types = scan_p->GetTypes();
-        data->reader = std::move(scan_p);
-
-        return data;
-    }
-
 };
 
 
 struct PxBindData : FunctionData {
 
-    shared_ptr<MultiFileList> file_list;
-    unique_ptr<MultiFileReader> multi_file_reader;
-    MultiFileReaderBindData reader_bind;
+    string file;
     vector<string> names;
     vector<LogicalType> types;
     PxOptions options;
-    shared_ptr<PxReader> initial_reader;
-    vector<unique_ptr<PxUnionData>> union_readers;
+    shared_ptr<PxReader> reader;
 
-    void Initialize(shared_ptr<PxReader> reader) {
-        initial_reader = std::move(reader);
-        options = initial_reader->options;
+    void Initialize(shared_ptr<PxReader> p_reader) {
+        reader = std::move(p_reader);
+        options = p_reader->options;
     }
 
     void Initialize(ClientContext &, shared_ptr<PxReader> reader) {
         Initialize(reader);
-    }
-
-    void Initialize(ClientContext &, unique_ptr<PxUnionData> &union_data) {
-        Initialize(std::move(union_data->reader));
-        names = union_data->names;
-        types = union_data->types;
-        options = union_data->options;
-        initial_reader = std::move(union_data->reader);
     }
 
     bool Equals(const FunctionData &other_p) const override {
@@ -374,31 +352,25 @@ static unique_ptr<FunctionData> PxBindFunction(ClientContext &context, TableFunc
 ) {
     auto &filename = input.inputs[0];
     auto result = make_uniq<PxBindData>();
-    result->multi_file_reader = MultiFileReader::Create(input.table_function);
+
 
     for (auto &kv : input.named_parameters) {
         if (kv.second.IsNull()) {
             throw BinderException("Cannot use NULL as function argument");
         }
         auto loption = StringUtil::Lower(kv.first);
-        // if (result->multi_file_reader->ParseOption(
-        //         kv.first, kv.second, result->avro_options.file_options, context)) {
-        //     continue;
-        // }
         throw InternalException("Unrecognized option %s", loption.c_str());
     }
 
-    result->file_list =
-        result->multi_file_reader->CreateFileList(context, filename);
-
-
     auto opts = PxOptions();
 
-    result->reader_bind = result->multi_file_reader->BindReader<PxReader>(context, result->types, result->names, *result->file_list, *result, opts);
+    result->reader = make_shared_ptr<PxReader>(context, filename.ToString(), opts);
 
+    return_types = result->reader->return_types;
+    names = result->reader->names;
 
-    return_types = result->types;
-    names = result->names;
+    result->types = return_types;
+    result->names = names;
 
     return std::move(result);
 
@@ -409,82 +381,46 @@ static unique_ptr<FunctionData> PxBindFunction(ClientContext &context, TableFunc
 struct PxGlobalState : GlobalTableFunctionState {
   mutex lock;
 
-  MultiFileListScanData scan_data;
   shared_ptr<PxReader> reader;
-
   vector<column_t> column_ids;
   optional_ptr<TableFilterSet> filters;
 };
 
 
 
-
-static bool PxNextFile(ClientContext &context, const PxBindData &bind_data,
-                         PxGlobalState &global_state,
-                         shared_ptr<PxReader> initial_reader) {
-  unique_lock<mutex> parallel_lock(global_state.lock);
-
-  string file;
-  if (!bind_data.file_list->Scan(global_state.scan_data, file)) {
-    return false;
-  }
-
-  // re-use initial reader for first file, no need to parse metadata again
-  if (initial_reader) {
-    D_ASSERT(file == initial_reader->filename);
-    global_state.reader = initial_reader;
-  } else {
-    global_state.reader =
-        make_shared_ptr<PxReader>(context, file, bind_data.options);
-  }
-
-  bind_data.multi_file_reader->InitializeReader(
-      *global_state.reader, bind_data.options.file_options,
-      bind_data.reader_bind, bind_data.types, bind_data.names,
-      global_state.column_ids, global_state.filters, file, context, nullptr);
-  return true;
-}
-
-
 static void PxTableFunction(ClientContext &context, TableFunctionInput &data,
                               DataChunk &output) {
-  auto &bind_data = data.bind_data->Cast<PxBindData>();
-  auto &global_state = data.global_state->Cast<PxGlobalState>();
-  do {
-    output.Reset();
-    global_state.reader->Read(output, global_state.column_ids);
-    bind_data.multi_file_reader->FinalizeChunk(context, bind_data.reader_bind,
-                                               global_state.reader->reader_data,
-                                               output, nullptr);
+	auto &bind_data = data.bind_data->Cast<PxBindData>();
+	auto &global_state = data.global_state->Cast<PxGlobalState>();
 
+	do {
+	output.Reset();
+	global_state.reader->Read(output, global_state.column_ids);
 
-    if (output.size() > 0) {
-      return;
-    }
+	if (output.size() > 0) {
+		return;
+	}
 
-    if (!PxNextFile(context, bind_data, global_state, nullptr)) {
-      return;
-    }
-  } while (true);
+	break;
+
+	} while (true);
 
 }
 
 
 unique_ptr<GlobalTableFunctionState> PxGlobalInit(ClientContext &context, TableFunctionInitInput &input) {
-  auto global_state_result = make_uniq<PxGlobalState>();
-  auto &global_state = *global_state_result;
-  auto &bind_data = input.bind_data->Cast<PxBindData>();
+	auto global_state_result = make_uniq<PxGlobalState>();
+	auto &global_state = *global_state_result;
+	auto &bind_data = input.bind_data->Cast<PxBindData>();
 
-  global_state.column_ids = input.column_ids;
-  global_state.filters = input.filters;
+	global_state.column_ids = input.column_ids;
+	global_state.filters = input.filters;
 
-  bind_data.file_list->InitializeScan(global_state.scan_data);
 
-  if (!PxNextFile(context, bind_data, global_state, bind_data.initial_reader)) {
-    throw InternalException("Cannot scan PX-files!");
-  }
+	D_ASSERT(bind_data.reader != NULL);
+	global_state.reader = bind_data.reader;
 
-  return std::move(global_state_result);
+	return std::move(global_state_result);
 };
 
 
