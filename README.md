@@ -59,7 +59,7 @@ db = new duckdb.Database(':memory:', {"allow_unsigned_extensions": "true"});
 Secondly, you will need to set the repository endpoint in DuckDB to the HTTP url of your bucket + version of the extension
 you want to install. To do this run the following SQL query in DuckDB:
 ```sql
-SET custom_extension_repository='bucket.s3.eu-west-1.amazonaws.com/<your_extension_name>/latest';
+SET custom_extension_repository='bucket.s3.eu-west-1.amazonaws.com/px/latest';
 ```
 Note that the `/latest` path will allow you to install the latest extension version available for your current version of
 DuckDB. To specify a specific version, you can pass the version instead.
