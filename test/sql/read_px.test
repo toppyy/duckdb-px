@@ -1,7 +1,6 @@
 # name: test/sql/read_px.test
 # description: test read_px
-# group: [read_px]
-
+# group: [sql]
 
 require px
 
