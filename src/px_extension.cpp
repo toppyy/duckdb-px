@@ -1,11 +1,9 @@
 #define DUCKDB_EXTENSION_MAIN
 
 #include "duckdb.hpp"
-#include "duckdb/common/multi_file_reader.hpp"
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/function/scalar_function.hpp"
-#include "duckdb/main/extension_util.hpp"
 #include <duckdb/parser/parsed_data/create_scalar_function_info.hpp>
 
 #include "px_extension.hpp"
@@ -20,29 +18,12 @@ namespace duckdb {
 
 struct PxReader;
 
-struct PxOptions {
-
-  explicit PxOptions() : file_options() {}
-
-  void Serialize(Serializer &serializer) const {
-    file_options.Serialize(serializer);
-  }
-  static PxOptions Deserialize(Deserializer &deserializer) {
-    PxOptions options;
-    options.file_options = MultiFileReaderOptions::Deserialize(deserializer);
-    return options;
-  }
-
-  MultiFileReaderOptions file_options;
-};
-
 struct PxUnionData {
 
   string file_name;
   vector<string> names;
   vector<LogicalType> types;
   unique_ptr<PxReader> reader;
-  PxOptions options;
 
   const string &GetFileName() { return file_name; }
 };
@@ -57,9 +38,7 @@ struct PxReader {
   vector<unique_ptr<Vector>> read_vecs;
   vector<string> names;
   string filename;
-  MultiFileReaderData reader_data;
   PxFile pxfile;
-  PxOptions options;
   size_t data_offset;
   size_t data_size;
   size_t observations_read;
@@ -190,8 +169,7 @@ struct PxReader {
 
   const vector<LogicalType> &GetTypes() { return return_types; }
 
-  PxReader(ClientContext &context, const string filename_p,
-           const PxOptions &options_p)
+  PxReader(ClientContext &context, const string filename_p)
       : pxfile(), data_offset(0), data_size(0), data(nullptr), read_vecs(),
         return_types(), names(), observations_read(0), value_type("float") {
     filename = filename_p;
@@ -310,12 +288,10 @@ struct PxBindData : FunctionData {
   string file;
   vector<string> names;
   vector<LogicalType> types;
-  PxOptions options;
   shared_ptr<PxReader> reader;
 
   void Initialize(shared_ptr<PxReader> p_reader) {
     reader = std::move(p_reader);
-    options = p_reader->options;
   }
 
   void Initialize(ClientContext &, shared_ptr<PxReader> reader) {
@@ -347,10 +323,7 @@ PxBindFunction(ClientContext &context, TableFunctionBindInput &input,
     throw InternalException("Unrecognized option %s", loption.c_str());
   }
 
-  auto opts = PxOptions();
-
-  result->reader =
-      make_shared_ptr<PxReader>(context, filename.ToString(), opts);
+  result->reader = make_shared_ptr<PxReader>(context, filename.ToString());
 
   return_types = result->reader->return_types;
   names = result->reader->names;
