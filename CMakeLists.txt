@@ -14,7 +14,7 @@ set(LOADABLE_EXTENSION_NAME ${TARGET_NAME}_loadable_extension)
 project(${TARGET_NAME})
 include_directories(src/include)
 
-set(EXTENSION_SOURCES src/px_extension.cpp src/px.cpp)
+set(EXTENSION_SOURCES src/px_extension.cpp src/px.cpp src/variable.cpp)
 
 # set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
 

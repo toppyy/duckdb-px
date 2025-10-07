@@ -1,3 +1,4 @@
+#include "variable.hpp"
 
 enum class PxKeyword : uint8_t {
   UNKNOWN = 0,
@@ -7,29 +8,6 @@ enum class PxKeyword : uint8_t {
   CODES = 4,
   DATA = 5,
   DECIMALS = 6
-};
-
-struct Variable {
-
-public:
-  Variable(std::string p_name);
-
-public:
-  const std::string &GetName();
-  std::vector<std::string> &GetCodes();
-  std::vector<std::string> &GetValues();
-
-  size_t CodeCount();
-  size_t ValueCount();
-
-  void SetRepetitionFactor(size_t p_rep_factor);
-  std::string NextCode(size_t row_idx);
-
-private:
-  std::string name;
-  std::vector<std::string> codes;
-  std::vector<std::string> values;
-  size_t repetition_factor;
 };
 
 struct PxFile {
@@ -43,6 +21,7 @@ public:
 public:
   void AddVariable(std::string name);
   void AddVariableCodeCount(size_t code_count);
+  void ParseMetadata(const char *data);
 
   std::string GetValueForVariable(size_t var_idx, size_t row_idx);
   std::vector<std::string> &GetVariableCodes(size_t var_idx);

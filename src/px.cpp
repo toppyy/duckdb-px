@@ -4,119 +4,8 @@
 #include "duckdb/common/exception.hpp"
 #include "duckdb.hpp"
 #include "px.hpp"
+#include "variable.hpp"
 
-PxKeyword ParseKeyword(const char *data) {
-
-  if (std::strncmp(data, "STUB=", 5) == 0) {
-    return PxKeyword::STUB;
-  }
-
-  if (std::strncmp(data, "HEADING=", 8) == 0) {
-    return PxKeyword::HEADING;
-  }
-
-  if (std::strncmp(data, "VALUES(", 7) == 0) {
-    return PxKeyword::VALUES;
-  }
-
-  if (std::strncmp(data, "CODES(", 6) == 0) {
-    return PxKeyword::CODES;
-  }
-
-  if (std::strncmp(data, "DATA=", 5) == 0) {
-    return PxKeyword::DATA;
-  }
-
-  if (std::strncmp(data, "DECIMALS=", 9) == 0) {
-    return PxKeyword::DECIMALS;
-  }
-
-  return PxKeyword::UNKNOWN;
-};
-
-Variable::Variable(std::string p_name)
-    : name(p_name), repetition_factor(0), codes(), values(){};
-
-const std::string &Variable::GetName() { return name; };
-
-size_t Variable::CodeCount() { return codes.size(); };
-size_t Variable::ValueCount() { return values.size(); };
-
-std::string Variable::NextCode(size_t row_idx) {
-  size_t i = row_idx % (repetition_factor * codes.size());
-  return codes[i / repetition_factor];
-}
-
-void Variable::SetRepetitionFactor(size_t p_rep_factor) {
-  repetition_factor = p_rep_factor;
-}
-
-std::vector<std::string> &Variable::GetCodes() { return codes; }
-
-std::vector<std::string> &Variable::GetValues() { return values; }
-
-std::string ISO88591toUTF8(std::string original_string) {
-  std::string rtrn;
-  for (int i = 0; i < original_string.size(); i++) {
-
-    switch (original_string[i]) {
-    case static_cast<char>(0xe4): // ä
-      rtrn += static_cast<char>(0xC3);
-      rtrn += static_cast<char>(0xA4);
-      break;
-    case static_cast<char>(0xf6): // ö
-      rtrn += static_cast<char>(0xC3);
-      rtrn += static_cast<char>(0xB6);
-      break;
-    case static_cast<char>(0xe5): // å
-      rtrn += static_cast<char>(0xC3);
-      rtrn += static_cast<char>(0xA5);
-      break;
-    case static_cast<char>(0xC4): // Ä
-      rtrn += static_cast<char>(0xC3);
-      rtrn += static_cast<char>(0x84);
-      break;
-    case static_cast<char>(0xD6): // Ö
-      rtrn += static_cast<char>(0xC3);
-      rtrn += static_cast<char>(0x96);
-      break;
-    case static_cast<char>(0xC5): // Å
-      rtrn += static_cast<char>(0xC3);
-      rtrn += static_cast<char>(0x85);
-      break;
-    default:
-      rtrn += original_string[i];
-    }
-  }
-  return rtrn;
-}
-
-PxFile::PxFile() : variable_count(0), variables(), observations(1) {
-  variables.reserve(10);
-}
-
-void PxFile::AddVariable(std::string name) {
-  variable_count++;
-  variables.emplace_back(name);
-}
-
-std::string PxFile::GetValueForVariable(size_t var_idx, size_t row_idx) {
-  return variables[var_idx].NextCode(row_idx);
-}
-
-void PxFile::AddVariableCodeCount(size_t code_count) {
-  observations *= code_count;
-}
-
-std::vector<std::string> &PxFile::GetVariableCodes(size_t var_idx) {
-  return variables[var_idx].GetCodes();
-}
-
-std::vector<std::string> &PxFile::GetVariableValues(size_t var_idx) {
-  return variables[var_idx].GetValues();
-}
-
-Variable &PxFile::GetVariable(size_t var_idx) { return variables[var_idx]; }
 
 size_t ParseList(const char *data, std::vector<std::string> &result, char end) {
   // Expects a string which contains a list of quoted elements
@@ -252,3 +141,101 @@ size_t ParseDecimals(const char *data, int &decimals) {
 
   return idx;
 }
+
+
+PxKeyword ParseKeyword(const char *data) {
+
+  if (std::strncmp(data, "STUB=", 5) == 0) {
+    return PxKeyword::STUB;
+  }
+
+  if (std::strncmp(data, "HEADING=", 8) == 0) {
+    return PxKeyword::HEADING;
+  }
+
+  if (std::strncmp(data, "VALUES(", 7) == 0) {
+    return PxKeyword::VALUES;
+  }
+
+  if (std::strncmp(data, "CODES(", 6) == 0) {
+    return PxKeyword::CODES;
+  }
+
+  if (std::strncmp(data, "DATA=", 5) == 0) {
+    return PxKeyword::DATA;
+  }
+
+  if (std::strncmp(data, "DECIMALS=", 9) == 0) {
+    return PxKeyword::DECIMALS;
+  }
+
+  return PxKeyword::UNKNOWN;
+};
+
+
+std::string ISO88591toUTF8(std::string original_string) {
+  std::string rtrn;
+  for (int i = 0; i < original_string.size(); i++) {
+
+    switch (original_string[i]) {
+    case static_cast<char>(0xe4): // ä
+      rtrn += static_cast<char>(0xC3);
+      rtrn += static_cast<char>(0xA4);
+      break;
+    case static_cast<char>(0xf6): // ö
+      rtrn += static_cast<char>(0xC3);
+      rtrn += static_cast<char>(0xB6);
+      break;
+    case static_cast<char>(0xe5): // å
+      rtrn += static_cast<char>(0xC3);
+      rtrn += static_cast<char>(0xA5);
+      break;
+    case static_cast<char>(0xC4): // Ä
+      rtrn += static_cast<char>(0xC3);
+      rtrn += static_cast<char>(0x84);
+      break;
+    case static_cast<char>(0xD6): // Ö
+      rtrn += static_cast<char>(0xC3);
+      rtrn += static_cast<char>(0x96);
+      break;
+    case static_cast<char>(0xC5): // Å
+      rtrn += static_cast<char>(0xC3);
+      rtrn += static_cast<char>(0x85);
+      break;
+    default:
+      rtrn += original_string[i];
+    }
+  }
+  return rtrn;
+}
+
+PxFile::PxFile() : variable_count(0), variables(), observations(1) {
+  variables.reserve(10);
+}
+
+void PxFile::AddVariable(std::string name) {
+  variable_count++;
+  variables.emplace_back(name);
+}
+
+void PxFile::ParseMetadata(const char* data) {
+}
+
+
+std::string PxFile::GetValueForVariable(size_t var_idx, size_t row_idx) {
+  return variables[var_idx].NextCode(row_idx);
+}
+
+void PxFile::AddVariableCodeCount(size_t code_count) {
+  observations *= code_count;
+}
+
+std::vector<std::string> &PxFile::GetVariableCodes(size_t var_idx) {
+  return variables[var_idx].GetCodes();
+}
+
+std::vector<std::string> &PxFile::GetVariableValues(size_t var_idx) {
+  return variables[var_idx].GetValues();
+}
+
+Variable &PxFile::GetVariable(size_t var_idx) { return variables[var_idx]; }

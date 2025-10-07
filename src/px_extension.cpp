@@ -8,6 +8,7 @@
 
 #include "px_extension.hpp"
 #include "px.hpp"
+#include "variable.hpp"
 
 // OpenSSL linked through vcpkg
 #include <openssl/opensslv.h>
