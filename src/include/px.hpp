@@ -1,4 +1,7 @@
+#include <string>
+#include <vector>
 #include "variable.hpp"
+#include "duckdb.hpp"
 
 enum class PxKeyword : uint8_t {
   UNKNOWN = 0,

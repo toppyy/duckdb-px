@@ -1,6 +1,5 @@
 #include "variable.hpp"
 
-
 Variable::Variable(std::string p_name)
     : name(p_name), repetition_factor(0), codes(), values(){};
 
@@ -21,4 +20,3 @@ void Variable::SetRepetitionFactor(size_t p_rep_factor) {
 std::vector<std::string> &Variable::GetCodes() { return codes; }
 
 std::vector<std::string> &Variable::GetValues() { return values; }
-

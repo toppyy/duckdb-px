@@ -1,11 +1,4 @@
-#include <string>
-#include <vector>
-#include <iostream>
-#include "duckdb/common/exception.hpp"
-#include "duckdb.hpp"
 #include "px.hpp"
-#include "variable.hpp"
-
 
 size_t ParseList(const char *data, std::vector<std::string> &result, char end) {
   // Expects a string which contains a list of quoted elements
@@ -142,7 +135,6 @@ size_t ParseDecimals(const char *data, int &decimals) {
   return idx;
 }
 
-
 PxKeyword ParseKeyword(const char *data) {
 
   if (std::strncmp(data, "STUB=", 5) == 0) {
@@ -171,7 +163,6 @@ PxKeyword ParseKeyword(const char *data) {
 
   return PxKeyword::UNKNOWN;
 };
-
 
 std::string ISO88591toUTF8(std::string original_string) {
   std::string rtrn;
@@ -218,9 +209,7 @@ void PxFile::AddVariable(std::string name) {
   variables.emplace_back(name);
 }
 
-void PxFile::ParseMetadata(const char* data) {
-}
-
+void PxFile::ParseMetadata(const char *data) {}
 
 std::string PxFile::GetValueForVariable(size_t var_idx, size_t row_idx) {
   return variables[var_idx].NextCode(row_idx);
