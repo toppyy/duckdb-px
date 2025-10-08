@@ -5,7 +5,6 @@
 #include "utils.hpp"
 #include "duckdb/common/exception.hpp"
 
-
 enum class PxKeyword : uint8_t {
   UNKNOWN = 0,
   STUB = 1,

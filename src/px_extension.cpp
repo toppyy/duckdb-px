@@ -40,7 +40,7 @@ struct PxReader {
       if (IsWhiteSpace(data[data_offset]))
         break;
     }
-    SkipWhiteSpace(data, data_offset, data_size);
+    data_offset = SkipWhiteSpace(data, data_offset, data_size);
     return rtrn;
   }
 
