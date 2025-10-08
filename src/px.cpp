@@ -209,7 +209,71 @@ void PxFile::AddVariable(std::string name) {
   variables.emplace_back(name);
 }
 
-void PxFile::ParseMetadata(const char *data) {}
+
+int PxFile::GetDecimals() {
+  return decimals;
+}
+
+size_t PxFile::ParseMetadata(const char *data, size_t idx, size_t data_size) {
+    
+    decimals = 3;
+
+    PxKeyword current_keyword = PxKeyword::UNKNOWN;
+
+    do {
+      while (IsWhiteSpace(data[idx])) {
+        idx++;
+      };
+
+      current_keyword = ParseKeyword(data + idx);
+
+      if (current_keyword == PxKeyword::UNKNOWN) {
+        // The keyword did not match, fast-forward to next keyword
+        // so that "DECIMALS" is not found within "SHOWDECIMALS", for example
+        while (data[idx++] != ';') {
+          if (idx >= data_size) {
+            throw duckdb::BinderException("Reached EOF when parsing keywords");
+          }
+        };
+        idx++;
+        continue;
+      }
+
+      if (current_keyword == PxKeyword::DATA)
+        break;
+
+      if ((current_keyword == PxKeyword::STUB) ||
+          (current_keyword == PxKeyword::HEADING)) {
+        idx += ParseStubOrHeading(data + idx, *this);
+        continue;
+      }
+
+      if (current_keyword == PxKeyword::DECIMALS) {
+        idx += ParseDecimals(data + idx, decimals);
+        continue;
+      }
+
+      if (current_keyword == PxKeyword::VALUES) {
+        idx += ParseValues(data + idx, *this);
+        continue;
+      }
+
+      if (current_keyword == PxKeyword::CODES) {
+        idx += ParseCodes(data + idx, *this);
+        continue;
+      }
+
+      idx++;
+
+    } while (true);
+
+    // idx points to DATA= after the loop
+    // so we can skip 'DATA=' by incrementing idx
+    idx += 5;
+    idx += SkipWhiteSpace(data, idx, data_size);
+
+    return idx;
+}
 
 std::string PxFile::GetValueForVariable(size_t var_idx, size_t row_idx) {
   return variables[var_idx].NextCode(row_idx);

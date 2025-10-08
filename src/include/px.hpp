@@ -2,6 +2,9 @@
 #include <vector>
 #include "variable.hpp"
 #include "duckdb.hpp"
+#include "utils.hpp"
+#include "duckdb/common/exception.hpp"
+
 
 enum class PxKeyword : uint8_t {
   UNKNOWN = 0,
@@ -20,11 +23,13 @@ public:
 
   size_t variable_count;
   size_t observations;
+  int decimals;
 
 public:
   void AddVariable(std::string name);
   void AddVariableCodeCount(size_t code_count);
-  void ParseMetadata(const char *data);
+  size_t ParseMetadata(const char *data, size_t idx, size_t data_size);
+  int GetDecimals();
 
   std::string GetValueForVariable(size_t var_idx, size_t row_idx);
   std::vector<std::string> &GetVariableCodes(size_t var_idx);

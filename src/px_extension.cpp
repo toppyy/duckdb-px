@@ -33,29 +33,6 @@ struct PxReader {
 
   std::string value_type;
 
-  bool IsWhiteSpace(char c) {
-    if (c == 32)
-      return true;
-    if (c == '\r')
-      return true;
-    if (c == '\n')
-      return true;
-    if (c == '\t')
-      return true;
-    return false;
-  }
-
-  bool IsNumeric(char c) { return c >= '0' && c <= '9'; }
-
-  void SkipWhiteSpace() {
-    while (data_offset < data_size) {
-      if (!IsWhiteSpace(data[data_offset])) {
-        break;
-      }
-      data_offset++;
-    };
-  }
-
   string GetNextValue() {
     string rtrn;
     while (data_offset < data_size) {
@@ -63,7 +40,7 @@ struct PxReader {
       if (IsWhiteSpace(data[data_offset]))
         break;
     }
-    SkipWhiteSpace();
+    SkipWhiteSpace(data, data_offset, data_size);
     return rtrn;
   }
 
@@ -174,67 +151,12 @@ struct PxReader {
     data_size = file->GetFileSize();
     data = const_char_ptr_cast(allocated_data.get());
 
-    size_t idx = 0;
+    data_offset = pxfile.ParseMetadata(data, data_offset, data_size);
 
-    int decimals = 3;
+    int decimals = pxfile.GetDecimals();
 
-    PxKeyword current_keyword = PxKeyword::UNKNOWN;
+    // Get variable metadata from parsed px-file
 
-    do {
-      while (IsWhiteSpace(data[idx])) {
-        idx++;
-      };
-
-      current_keyword = ParseKeyword(data + idx);
-
-      if (current_keyword == PxKeyword::UNKNOWN) {
-        // The keyword did not match, fast-forward to next keyword
-        // so that "DECIMALS" is not found within "SHOWDECIMALS", for example
-        while (data[idx++] != ';') {
-          if (idx >= data_size) {
-            throw BinderException("Reached EOF when parsing keywords");
-            return;
-          }
-        };
-        idx++;
-        continue;
-      }
-
-      if (current_keyword == PxKeyword::DATA)
-        break;
-
-      if ((current_keyword == PxKeyword::STUB) ||
-          (current_keyword == PxKeyword::HEADING)) {
-        idx += ParseStubOrHeading(data + idx, pxfile);
-        continue;
-      }
-
-      if (current_keyword == PxKeyword::DECIMALS) {
-        idx += ParseDecimals(data + idx, decimals);
-        continue;
-      }
-
-      if (current_keyword == PxKeyword::VALUES) {
-        idx += ParseValues(data + idx, pxfile);
-        continue;
-      }
-
-      if (current_keyword == PxKeyword::CODES) {
-        idx += ParseCodes(data + idx, pxfile);
-        continue;
-      }
-
-      idx++;
-
-    } while (true);
-
-    // idx points to DATA= after the loop
-    // so we can skip 'DATA=' by incrementing idx
-    idx += 5;
-    data_offset = idx;
-    SkipWhiteSpace();
-
-    // Add variables
     for (size_t i = 0; i < pxfile.variable_count; i++) {
 
       Variable &var = pxfile.GetVariable(i);
@@ -249,6 +171,7 @@ struct PxReader {
     }
 
     size_t repetition_factor = 1, col_idx = pxfile.variable_count - 1;
+
     for (size_t i = 0; i < pxfile.variable_count; i++) {
       pxfile.GetVariable(col_idx).SetRepetitionFactor(repetition_factor);
       repetition_factor *= pxfile.GetVariable(col_idx).CodeCount();
@@ -267,7 +190,7 @@ struct PxReader {
     value_type = "int";
     read_vecs.push_back(make_uniq<Vector>(LogicalType::INTEGER));
     return_types.push_back(LogicalType::INTEGER);
-  }
+  };
 };
 
 struct PxBindData : FunctionData {
@@ -345,7 +268,7 @@ static void PxTableFunction(ClientContext &context, TableFunctionInput &data,
     break;
 
   } while (true);
-}
+};
 
 unique_ptr<GlobalTableFunctionState>
 PxGlobalInit(ClientContext &context, TableFunctionInitInput &input) {
@@ -370,7 +293,7 @@ static void LoadInternal(ExtensionLoader &loader) {
                     PxBindFunction, PxGlobalInit);
 
   loader.RegisterFunction(px_table_function);
-}
+};
 
 void PxExtension::Load(ExtensionLoader &loader) { LoadInternal(loader); }
 std::string PxExtension::Name() { return "px"; }
@@ -383,7 +306,7 @@ std::string PxExtension::Version() const {
 #endif
 }
 
-} // namespace duckdb
+}; // namespace duckdb
 
 extern "C" {
 
