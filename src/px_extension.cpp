@@ -1,10 +1,8 @@
 #define DUCKDB_EXTENSION_MAIN
 #include "px_extension.hpp"
 
-
 // OpenSSL linked through vcpkg
 #include <openssl/opensslv.h>
-
 
 namespace duckdb {
 
