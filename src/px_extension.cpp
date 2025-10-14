@@ -35,7 +35,7 @@ struct PxReader {
   const char *data;
 
   std::string value_type;
-
+  /*
   string GetNextValue() {
     string rtrn;
     while (data_offset < data_size) {
@@ -46,21 +46,30 @@ struct PxReader {
     data_offset = SkipWhiteSpace(data, data_offset, data_size);
     return rtrn;
   }
+  */
 
-  void AssignValue(size_t variable, size_t out_idx, const string &val) {
+  void MoveToNextValue() {
+    // size_t loops = 0;
+    while (data_offset < data_size) {
+      if (IsWhiteSpace(data[data_offset++])) break;
+      // printf("MoveToNextValue %ld (%c)\n", loops++, data[data_offset - 1]);
+    } 
+  }
+
+  void AssignValue(size_t variable, size_t out_idx) {
     if (value_type == "float") {
-      AssignFloatValue(variable, out_idx, val);
+      AssignFloatValue(variable, out_idx);
       return;
     }
 
-    AssignIntegerValue(variable, out_idx, val);
+    AssignIntegerValue(variable, out_idx);
   }
 
-  void AssignFloatValue(size_t variable, size_t out_idx, const string &val) {
+  void AssignFloatValue(size_t variable, size_t out_idx) {
     float fval;
 
     try {
-      fval = std::stof(val);
+      fval = (float) std::atof(data + data_offset);
     } catch (const std::invalid_argument &e) {
       std::cerr << "Invalid argument: " << e.what() << std::endl;
     } catch (const std::out_of_range &e) {
@@ -69,10 +78,10 @@ struct PxReader {
     FlatVector::GetData<float>(*read_vecs[variable])[out_idx] = fval;
   }
 
-  void AssignIntegerValue(size_t variable, size_t out_idx, const string &val) {
+  void AssignIntegerValue(size_t variable, size_t out_idx) {
     int32_t ival;
     try {
-      ival = std::stoi(val);
+      ival = std::atoi(data + data_offset);
     } catch (const std::invalid_argument &e) {
       std::cerr << "Invalid argument: " << e.what() << std::endl;
     } catch (const std::out_of_range &e) {
@@ -95,15 +104,16 @@ struct PxReader {
     string val;
 
     while (true) {
+      // printf("Vector-loop: out_idx %ld, observations_read %ld, STANDARD_VECTOR_SIZE %d\n", out_idx, observations_read, STANDARD_VECTOR_SIZE);
       for (size_t col_idx = 0; col_idx <= variables; col_idx++) {
         if (col_idx == variables) {
-          val = GetNextValue();
-          if (!IsNumeric(val[0])) { // TODO handle negative values
+          MoveToNextValue();
+          if (!IsNumeric(data[data_offset])) { // TODO handle negative values
             FlatVector::Validity(*read_vecs[variables]).SetInvalid(out_idx);
             continue;
           };
           FlatVector::Validity(*read_vecs[variables]).SetValid(out_idx);
-          AssignValue(variables, out_idx, val);
+          AssignValue(variables, out_idx);
           continue;
         }
         FlatVector::GetData<string_t>(*read_vecs[col_idx])[out_idx] =
