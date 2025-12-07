@@ -17,6 +17,7 @@ public:
 
   void SetRepetitionFactor(size_t p_rep_factor);
   std::string NextCode(size_t row_idx);
+  size_t NextCodeIndex(size_t row_idx);
 
 private:
   std::string name;

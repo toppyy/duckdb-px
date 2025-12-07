@@ -8,6 +8,12 @@ const std::string &Variable::GetName() { return name; };
 size_t Variable::CodeCount() { return codes.size(); };
 size_t Variable::ValueCount() { return values.size(); };
 
+
+size_t Variable::NextCodeIndex(size_t row_idx) {
+  size_t i = row_idx % (repetition_factor * codes.size());
+  return i / repetition_factor;
+}
+
 std::string Variable::NextCode(size_t row_idx) {
   size_t i = row_idx % (repetition_factor * codes.size());
   return codes[i / repetition_factor];

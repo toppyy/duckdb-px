@@ -272,6 +272,11 @@ size_t PxFile::ParseMetadata(const char *data, size_t idx, size_t data_size) {
   return idx;
 }
 
+
+size_t PxFile::GetCodeIndexForVariable(size_t var_idx, size_t row_idx) {
+  return variables[var_idx].NextCodeIndex(row_idx);
+}
+
 std::string PxFile::GetValueForVariable(size_t var_idx, size_t row_idx) {
   return variables[var_idx].NextCode(row_idx);
 }

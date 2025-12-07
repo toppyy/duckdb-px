@@ -31,6 +31,7 @@ public:
   int GetDecimals();
 
   std::string GetValueForVariable(size_t var_idx, size_t row_idx);
+  size_t GetCodeIndexForVariable(size_t var_idx, size_t row_idx);
   std::vector<std::string> &GetVariableCodes(size_t var_idx);
   std::vector<std::string> &GetVariableValues(size_t var_idx);
   Variable &GetVariable(size_t var_idx);
