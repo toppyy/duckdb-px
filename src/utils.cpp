@@ -12,7 +12,18 @@ bool IsWhiteSpace(char c) {
   return false;
 }
 
-bool IsNumeric(char c) { return c >= '0' && c <= '9'; }
+bool IsNumeric(std::string val) {
+
+  char c = val[0];
+  if (c == '-') {
+    // Negative number?
+    if (val.size() > 1) {
+      c = val[1];
+    }
+  }
+  
+  return c >= '0' && c <= '9';
+}
 
 size_t SkipWhiteSpace(const char *data, size_t offset, size_t size) {
   while (offset < size) {

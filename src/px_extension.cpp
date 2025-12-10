@@ -98,7 +98,7 @@ struct PxReader {
       for (size_t col_idx = 0; col_idx <= variables; col_idx++) {
         if (col_idx == variables) {
           val = GetNextValue();
-          if (!IsNumeric(val[0])) { // TODO handle negative values
+          if (!IsNumeric(val)) {
             FlatVector::Validity(*read_vecs[variables]).SetInvalid(out_idx);
             continue;
           };
