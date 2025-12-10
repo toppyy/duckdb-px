@@ -21,7 +21,7 @@ bool IsNumeric(std::string val) {
       c = val[1];
     }
   }
-  
+
   return c >= '0' && c <= '9';
 }
 
