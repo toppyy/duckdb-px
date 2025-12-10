@@ -77,6 +77,18 @@ SELECT COUNT(value),COUNT(1) FROM read_px('test/data/statfin_tyonv_eckero.px');
 ----
 192	253
 
-
+# Can handle negative numbers
+query I
+SELECT value
+FROM read_px('test/data/statfin_khi_pxt_11xb.px')
+WHERE
+	Hyödyke = '0'
+	AND
+	Kuukausi = '2025M10'
+	AND
+	Tiedot = 'vuosimuutos'
+;
+----
+-0.18
 
 
