@@ -107,11 +107,11 @@ struct PxReader {
           continue;
         }
 
-        size_t selectedIndex = pxfile.GetCodeIndexForVariable(col_idx, observations_read);
+        size_t selectedIndex =
+            pxfile.GetCodeIndexForVariable(col_idx, observations_read);
 
         auto &sel_vector = DictionaryVector::SelVector(*read_vecs[col_idx]);
         sel_vector[out_idx] = selectedIndex;
-
       }
 
       out_idx++;
@@ -169,7 +169,7 @@ struct PxReader {
       if (var.CodeCount() != var.ValueCount()) {
         throw BinderException("Number of VALUES and CODES do not match!");
       }
-      
+
       read_vecs.push_back(make_uniq<Vector>(LogicalType::VARCHAR));
 
       // Build the dictionary
@@ -177,16 +177,18 @@ struct PxReader {
       size_t out_idx = 0;
       Vector dict(LogicalType::VARCHAR);
       for (auto code : var.GetCodes()) {
-        FlatVector::GetData<string_t>(*read_vecs[idx])[out_idx] = StringVector::AddString(*read_vecs[idx], code);
+        FlatVector::GetData<string_t>(*read_vecs[idx])[out_idx] =
+            StringVector::AddString(*read_vecs[idx], code);
         out_idx++;
       }
 
       // Turn it into a dictionary vectory
       SelectionVector sel_vect(STANDARD_VECTOR_SIZE);
-      read_vecs[idx]->Dictionary(var.CodeCount(), sel_vect,  STANDARD_VECTOR_SIZE);
+      read_vecs[idx]->Dictionary(var.CodeCount(), sel_vect,
+                                 STANDARD_VECTOR_SIZE);
       DictionaryVector::SetDictionaryId(*read_vecs[idx], "vec" + i);
-  		D_ASSERT(read_vecs[idx]->GetVectorType() == VectorType::DICTIONARY_VECTOR);
-
+      D_ASSERT(read_vecs[idx]->GetVectorType() ==
+               VectorType::DICTIONARY_VECTOR);
 
       return_types.push_back(LogicalType::VARCHAR);
       names.push_back(var.GetName());
