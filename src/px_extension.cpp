@@ -37,12 +37,16 @@ struct PxReader {
   std::string value_type;
 
   string GetNextValue() {
-    string rtrn;
-    while (data_offset < data_size) {
-      rtrn += data[data_offset++];
-      if (IsWhiteSpace(data[data_offset]))
-        break;
+    // Find the end of the current token (next whitespace or end of data)
+    size_t start = data_offset;
+    while (data_offset < data_size && !IsWhiteSpace(data[data_offset])) {
+      data_offset++;
     }
+
+    // Single allocation and copy for the token
+    string rtrn(data + start, data_offset - start);
+
+    // Skip trailing whitespace
     data_offset = SkipWhiteSpace(data, data_offset, data_size);
     return rtrn;
   }
