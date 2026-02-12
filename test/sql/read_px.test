@@ -92,3 +92,13 @@ WHERE
 -0.18
 
 
+# Rows after first block are correct
+query IIIII
+SELECT *  FROM read_px('test/data/statfin_vaerak_pxt_11rc.px') OFFSET 3000 LIMIT 5
+;
+----
+1917	1	80-84	vaesto	5200
+1917	1	85-	vaesto	1700
+1917	2	SSS	vaesto	1593600
+1917	2	0-4	vaesto	177500
+1917	2	5-9	vaesto	183200
