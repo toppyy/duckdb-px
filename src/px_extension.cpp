@@ -76,6 +76,13 @@ struct PxReader {
       return;
     }
 
+    // Reset sequential counters on first read
+    if (observations_read == 0) {
+      for (size_t i = 0; i < pxfile.variable_count; i++) {
+        pxfile.GetVariable(i).ResetSequentialCounter();
+      }
+    }
+
     // There are actually variables + 1 vectors in the output
     // pxfile.variable_count only counts for variables excl. "value"
     // which is always present
@@ -96,7 +103,7 @@ struct PxReader {
         }
 
         size_t selectedIndex =
-            pxfile.GetCodeIndexForVariable(col_idx, observations_read);
+            pxfile.GetVariable(col_idx).NextCodeIndexSequential();
 
         auto &sel_vector = DictionaryVector::SelVector(*read_vecs[col_idx]);
         sel_vector[out_idx] = selectedIndex;

@@ -1,7 +1,8 @@
 #include "variable.hpp"
 
 Variable::Variable(std::string p_name)
-    : name(p_name), repetition_factor(0), codes(), values(){};
+    : name(p_name), repetition_factor(0), codes(), values(),
+      current_code_index(0), count_in_current_code(0) {};
 
 const std::string &Variable::GetName() { return name; };
 
@@ -25,3 +26,21 @@ void Variable::SetRepetitionFactor(size_t p_rep_factor) {
 std::vector<std::string> &Variable::GetCodes() { return codes; }
 
 std::vector<std::string> &Variable::GetValues() { return values; }
+
+size_t Variable::NextCodeIndexSequential() {
+  size_t idx = current_code_index;
+  count_in_current_code++;
+  if (count_in_current_code >= repetition_factor) {
+    count_in_current_code = 0;
+    current_code_index++;
+    if (current_code_index >= codes.size()) {
+      current_code_index = 0;
+    }
+  }
+  return idx;
+}
+
+void Variable::ResetSequentialCounter() {
+  current_code_index = 0;
+  count_in_current_code = 0;
+}
