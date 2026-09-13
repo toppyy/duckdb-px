@@ -1,7 +1,6 @@
 #define DUCKDB_EXTENSION_MAIN
 #include "px_extension.hpp"
 
-
 namespace duckdb {
 
 struct PxReader;
