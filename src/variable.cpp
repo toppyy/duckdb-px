@@ -2,7 +2,7 @@
 
 Variable::Variable(std::string p_name)
     : name(p_name), repetition_factor(0), codes(), values(),
-      current_code_index(0), count_in_current_code(0) {};
+      current_code_index(0), count_in_current_code(0){};
 
 const std::string &Variable::GetName() { return name; };
 

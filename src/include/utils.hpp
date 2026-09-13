@@ -8,19 +8,19 @@ namespace duckdb {
 // Simple C++11-compatible StringView class
 class StringView {
 private:
-    const char *data_;
-    size_t size_;
+  const char *data_;
+  size_t size_;
 
 public:
-    StringView() : data_(nullptr), size_(0) {}
-    StringView(const char *data, size_t size) : data_(data), size_(size) {}
-    
-    const char *data() const { return data_; }
-    size_t size() const { return size_; }
-    bool empty() const { return size_ == 0; }
-    
-    char operator[](size_t pos) const { return data_[pos]; }
-    char at(size_t pos) const { return data_[pos]; }
+  StringView() : data_(nullptr), size_(0) {}
+  StringView(const char *data, size_t size) : data_(data), size_(size) {}
+
+  const char *data() const { return data_; }
+  size_t size() const { return size_; }
+  bool empty() const { return size_ == 0; }
+
+  char operator[](size_t pos) const { return data_[pos]; }
+  char at(size_t pos) const { return data_[pos]; }
 };
 
 } // namespace duckdb
