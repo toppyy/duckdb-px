@@ -157,14 +157,21 @@ struct PxReader {
     if (fsize == 0) {
       throw BinderException("PX-file %s is empty", filename);
     }
-    if (fsize > 1000000000) {
-      throw BinderException("PX-file %s too large (%llu bytes)", filename,
-                            (unsigned long long)fsize);
+    try {
+      allocated_data = Allocator::Get(context).Allocate(fsize);
+    } catch (const Exception &ex) {
+      throw BinderException("Failed to allocate memory for PX-file %s (%llu bytes): %s", filename,
+                            (unsigned long long)fsize, ex.what());
     }
-    allocated_data = Allocator::Get(context).Allocate(fsize);
-    auto n_read = file->Read(allocated_data.get(), allocated_data.GetSize());
+    idx_t n_read = 0;
+    try {
+      n_read = file->Read(allocated_data.get(), allocated_data.GetSize());
+    } catch (const Exception &ex) {
+      throw InvalidInputException("Failed to read PX-file %s: %s", filename, ex.what());
+    }
     if (n_read != (idx_t)fsize) {
-      throw InvalidInputException("Failed to read PX-file %s", filename);
+      throw InvalidInputException("Failed to read PX-file %s (read %llu of %llu bytes)", filename,
+                                  (unsigned long long)n_read, (unsigned long long)fsize);
     }
 
     /* Parse column types */
