@@ -181,7 +181,7 @@ struct PxReader {
       SelectionVector sel_vect(STANDARD_VECTOR_SIZE);
       read_vecs[idx]->Dictionary(var.CodeCount(), sel_vect,
                                  STANDARD_VECTOR_SIZE);
-      DictionaryVector::SetDictionaryId(*read_vecs[idx], "vec" + i);
+
       D_ASSERT(read_vecs[idx]->GetVectorType() ==
                VectorType::DICTIONARY_VECTOR);
 
