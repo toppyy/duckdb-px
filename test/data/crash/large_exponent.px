@@ -1,0 +1,10 @@
+CHARSET="ANSI";
+STUB="var1";
+HEADING="var2";
+VALUES("var1")="a","b";
+CODES("var1")="a","b";
+VALUES("var2")="x","y";
+CODES("var2")="x","y";
+DECIMALS=2;
+DATA=
+1e999999 1 1 1;

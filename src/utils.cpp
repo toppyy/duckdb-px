@@ -1,4 +1,6 @@
 #include "utils.hpp"
+#include <cstdint>
+#include <climits>
 
 bool IsWhiteSpace(char c) {
   if (c == 32)
@@ -100,12 +102,21 @@ float ParseFloat(duckdb::StringView sv) {
     }
 
     int32_t exponent = 0;
-    while (p < end && *p >= '0' && *p <= '9') {
+    int digits = 0;
+    while (p < end && *p >= '0' && *p <= '9' && digits < 6) {
       exponent = exponent * 10 + (*p - '0');
       p++;
+      digits++;
     }
-
-    // Apply exponent
+    while (p < end && *p >= '0' && *p <= '9') {
+      p++;
+    }
+    if (exponent > 38) {
+      exponent = 38;
+    }
+    if (exponent < -38) {
+      exponent = -38;
+    }
     float multiplier = 1.0f;
     for (int i = 0; i < exponent; i++) {
       multiplier *= 10.0f;
@@ -149,12 +160,21 @@ int32_t ParseInt32(duckdb::StringView sv) {
   if (p >= end)
     return 0;
 
-  // Parse integer part
-  int32_t result = 0;
+  int64_t result = 0;
   while (p < end && *p >= '0' && *p <= '9') {
     result = result * 10 + (*p - '0');
+    if (result > 3000000000LL) {
+      break;
+    }
     p++;
   }
-
-  return negative ? -result : result;
+  while (p < end && *p >= '0' && *p <= '9') {
+    p++;
+  }
+  if (result > INT32_MAX)
+    result = INT32_MAX;
+  if (negative && result > (int64_t)INT32_MAX + 1)
+    result = (int64_t)INT32_MAX + 1;
+  int32_t out = (int32_t)result;
+  return negative ? -out : out;
 }

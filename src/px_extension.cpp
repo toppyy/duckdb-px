@@ -1,5 +1,6 @@
 #define DUCKDB_EXTENSION_MAIN
 #include "px_extension.hpp"
+#include <mutex>
 
 namespace duckdb {
 
@@ -30,21 +31,33 @@ struct PxReader {
   size_t data_size;
   size_t observations_read;
   const char *data;
+  std::mutex read_lock;
 
   std::string value_type;
 
   StringView GetNextValue() {
-    // Find the end of the current token (next whitespace or end of data)
+    if (data_offset >= data_size) {
+      return StringView(nullptr, 0);
+    }
+    data_offset = SkipWhiteSpace(data, data_offset, data_size);
+    if (data_offset >= data_size) {
+      return StringView(nullptr, 0);
+    }
+    if (data[data_offset] == ';') {
+      data_offset++;
+      data_offset = SkipWhiteSpace(data, data_offset, data_size);
+      return StringView(nullptr, 0);
+    }
     size_t start = data_offset;
-    while (data_offset < data_size && !IsWhiteSpace(data[data_offset])) {
+    while (data_offset < data_size && !IsWhiteSpace(data[data_offset]) &&
+           data[data_offset] != ';') {
       data_offset++;
     }
-
-    // Create StringView - no allocation!
     StringView rtrn(data + start, data_offset - start);
-
-    // Skip trailing whitespace
     data_offset = SkipWhiteSpace(data, data_offset, data_size);
+    if (data_offset < data_size && data[data_offset] == ';') {
+      data_offset++;
+    }
     return rtrn;
   }
 
@@ -68,7 +81,7 @@ struct PxReader {
   }
 
   void Read(DataChunk &output, const vector<column_t> &column_ids) {
-
+    std::lock_guard<std::mutex> guard(read_lock);
     if (observations_read >= pxfile.observations) {
       return;
     }
@@ -140,12 +153,29 @@ struct PxReader {
     }
 
     auto file = fs.OpenFile(filename, FileOpenFlags::FILE_FLAGS_READ);
-    allocated_data = Allocator::Get(context).Allocate(file->GetFileSize());
-    auto n_read = file->Read(allocated_data.get(), allocated_data.GetSize());
-    D_ASSERT(n_read == file->GetFileSize());
+    auto fsize = file->GetFileSize();
+    if (fsize == 0) {
+      throw BinderException("PX-file %s is empty", filename);
+    }
+    try {
+      allocated_data = Allocator::Get(context).Allocate(fsize);
+    } catch (const Exception &ex) {
+      throw BinderException("Failed to allocate memory for PX-file %s (%llu bytes): %s", filename,
+                            (unsigned long long)fsize, ex.what());
+    }
+    idx_t n_read = 0;
+    try {
+      n_read = file->Read(allocated_data.get(), allocated_data.GetSize());
+    } catch (const Exception &ex) {
+      throw InvalidInputException("Failed to read PX-file %s: %s", filename, ex.what());
+    }
+    if (n_read != (idx_t)fsize) {
+      throw InvalidInputException("Failed to read PX-file %s (read %llu of %llu bytes)", filename,
+                                  (unsigned long long)n_read, (unsigned long long)fsize);
+    }
 
     /* Parse column types */
-    data_size = file->GetFileSize();
+    data_size = fsize;
     data = const_char_ptr_cast(allocated_data.get());
 
     data_offset = pxfile.ParseMetadata(data, data_offset, data_size);
@@ -158,8 +188,19 @@ struct PxReader {
 
       Variable &var = pxfile.GetVariable(i);
 
-      if (var.CodeCount() != var.ValueCount()) {
-        throw BinderException("Number of VALUES and CODES do not match!");
+      if (var.ValueCount() != 0 && var.CodeCount() != var.ValueCount()) {
+        throw BinderException(
+            "Number of VALUES and CODES do not match for variable '%s'!",
+            var.GetName().c_str());
+      }
+      if (var.CodeCount() == 0) {
+        throw BinderException("Variable '%s' has no CODES",
+                              var.GetName().c_str());
+      }
+      if (var.CodeCount() > STANDARD_VECTOR_SIZE) {
+        throw BinderException("Variable '%s' has too many codes %zu > %d",
+                              var.GetName().c_str(), var.CodeCount(),
+                              STANDARD_VECTOR_SIZE);
       }
 
       read_vecs.push_back(make_uniq<Vector>(LogicalType::VARCHAR));
@@ -167,15 +208,15 @@ struct PxReader {
       // Build the dictionary
       size_t idx = read_vecs.size() - 1;
       size_t out_idx = 0;
-      Vector dict(LogicalType::VARCHAR);
-      for (auto code : var.GetCodes()) {
+      for (auto &code : var.GetCodes()) {
         FlatVector::GetData<string_t>(*read_vecs[idx])[out_idx] =
             StringVector::AddString(*read_vecs[idx], code);
         out_idx++;
       }
 
       // Turn it into a dictionary vectory
-      SelectionVector sel_vect(STANDARD_VECTOR_SIZE);
+      SelectionVector sel_vect;
+      sel_vect.Initialize(STANDARD_VECTOR_SIZE);
       read_vecs[idx]->Dictionary(var.CodeCount(), sel_vect,
                                  STANDARD_VECTOR_SIZE);
 
@@ -186,12 +227,20 @@ struct PxReader {
       names.push_back(var.GetName());
     }
 
-    size_t repetition_factor = 1, col_idx = pxfile.variable_count - 1;
-
-    for (size_t i = 0; i < pxfile.variable_count; i++) {
-      pxfile.GetVariable(col_idx).SetRepetitionFactor(repetition_factor);
-      repetition_factor *= pxfile.GetVariable(col_idx).CodeCount();
-      col_idx--;
+    if (pxfile.variable_count > 0) {
+      size_t repetition_factor = 1;
+      for (size_t i = pxfile.variable_count; i-- > 0;) {
+        auto &var = pxfile.GetVariable(i);
+        var.SetRepetitionFactor(repetition_factor);
+        if (var.CodeCount() == 0) {
+          throw BinderException("Variable '%s' has zero codes",
+                                var.GetName().c_str());
+        }
+        if (repetition_factor > SIZE_MAX / var.CodeCount()) {
+          throw BinderException("Too many observations, product overflow");
+        }
+        repetition_factor *= var.CodeCount();
+      }
     }
 
     // Variable(s) for values
@@ -225,13 +274,19 @@ struct PxBindData : FunctionData {
   }
 
   bool Equals(const FunctionData &other_p) const override {
-    D_ASSERT(false); // FIXME
-    return false;
+    D_ASSERT(false);
+    auto &other = other_p.Cast<PxBindData>();
+    return reader == other.reader && file == other.file;
   }
 
   unique_ptr<FunctionData> Copy() const override {
-    D_ASSERT(false); // FIXME
-    return nullptr;
+    D_ASSERT(false);
+    auto copy = make_uniq<PxBindData>();
+    copy->file = file;
+    copy->names = names;
+    copy->types = types;
+    copy->reader = reader;
+    return std::move(copy);
   }
 };
 

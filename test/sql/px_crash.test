@@ -1,0 +1,101 @@
+# name: test/sql/px_crash.test
+# description: crash handling and validation
+# group: [sql]
+
+require px
+
+statement ok
+PRAGMA enable_verification
+
+# valid minimal should work
+query I
+SELECT COUNT(*) FROM read_px('test/data/crash/valid_minimal.px')
+----
+4
+
+# decimals 9 parsing (bug <'9' previously failed for 9)
+query I
+SELECT COUNT(*) FROM read_px('test/data/crash/decimals_nine.px')
+----
+4
+
+query I
+SELECT COUNT(*) FROM read_px('test/data/crash/codes_with_9.px')
+----
+4
+
+# truncated DATA: only 1 value for 4 expected, remaining should be NULL not crash
+query II
+SELECT COUNT(*), COUNT(value) FROM read_px('test/data/crash/truncated_data.px')
+----
+4	1
+
+# large exponent should not hang or crash, should produce value or float
+query I
+SELECT COUNT(*) FROM read_px('test/data/crash/large_exponent.px')
+----
+4
+
+# mismatch VALUES/CODES count should error not crash
+statement error
+SELECT * FROM read_px('test/data/crash/mismatch_values_codes.px')
+----
+Binder Error
+
+# empty file should error
+statement error
+SELECT * FROM read_px('test/data/crash/empty.px')
+----
+Binder Error
+
+# no variables (no STUB/HEADING) should error not crash/underflow
+statement error
+SELECT * FROM read_px('test/data/crash/no_vars.px')
+----
+Binder Error
+
+# missing semicolon is tolerated but should not OOB/crash (currently succeeds)
+statement ok
+SELECT * FROM read_px('test/data/crash/no_semicolon.px')
+
+# unclosed quote should error not OOB read
+statement error
+SELECT * FROM read_px('test/data/crash/unclosed_quote.px')
+----
+Binder Error
+
+# missing CODES should error (zero codes -> div by zero)
+statement error
+SELECT * FROM read_px('test/data/crash/no_codes.px')
+----
+Binder Error
+
+# empty CODES should error
+statement error
+SELECT * FROM read_px('test/data/crash/empty_codes.px')
+----
+Binder Error
+
+# too many codes (>2048) should error with limit, not heap corruption
+statement error
+SELECT * FROM read_px('test/data/crash/many_codes.px')
+----
+Binder Error
+
+# missing DATA keyword should error not infinite loop
+statement error
+SELECT * FROM read_px('test/data/crash/missing_data_keyword.px')
+----
+Binder Error
+
+# file not found already handled
+statement error
+SELECT * FROM read_px('test/data/crash/does_not_exist.px')
+----
+not found
+
+# also test that file with many rows still correct after first block (regression)
+query I
+SELECT COUNT(*) FROM read_px('test/data/statfin_vaerak_pxt_11rc.px') WHERE vuosi='1900'
+----
+57

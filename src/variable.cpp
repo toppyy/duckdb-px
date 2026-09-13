@@ -10,12 +10,24 @@ size_t Variable::CodeCount() { return codes.size(); };
 size_t Variable::ValueCount() { return values.size(); };
 
 size_t Variable::NextCodeIndex(size_t row_idx) {
-  size_t i = row_idx % (repetition_factor * codes.size());
+  if (repetition_factor == 0 || codes.empty()) {
+    return 0;
+  }
+  size_t denom = repetition_factor * codes.size();
+  if (denom == 0)
+    return 0;
+  size_t i = row_idx % denom;
   return i / repetition_factor;
 }
 
 std::string Variable::NextCode(size_t row_idx) {
-  size_t i = row_idx % (repetition_factor * codes.size());
+  if (repetition_factor == 0 || codes.empty()) {
+    return "";
+  }
+  size_t denom = repetition_factor * codes.size();
+  if (denom == 0)
+    return "";
+  size_t i = row_idx % denom;
   return codes[i / repetition_factor];
 }
 
@@ -28,6 +40,13 @@ std::vector<std::string> &Variable::GetCodes() { return codes; }
 std::vector<std::string> &Variable::GetValues() { return values; }
 
 size_t Variable::NextCodeIndexSequential() {
+  if (codes.empty())
+    return 0;
+  if (repetition_factor == 0) {
+    size_t idx = current_code_index;
+    current_code_index = (current_code_index + 1) % codes.size();
+    return idx;
+  }
   size_t idx = current_code_index;
   count_in_current_code++;
   if (count_in_current_code >= repetition_factor) {

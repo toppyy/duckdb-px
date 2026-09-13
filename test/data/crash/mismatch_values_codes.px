@@ -1,0 +1,9 @@
+CHARSET="ANSI";
+STUB="var1";
+HEADING="var2";
+VALUES("var1")="a","b","c";
+CODES("var1")="a","b";
+VALUES("var2")="x","y";
+CODES("var2")="x","y";
+DATA=
+1 2 3 4;
