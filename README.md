@@ -1,10 +1,17 @@
 # DuckDB-Px
 
-This DuckDB extension allows you read [Px-files](https://www.scb.se/en/services/statistical-programs-for-px-files/px-file-format/). `.px` is file format used to publish and distribute (official) statistics. For example, the statistical offices of sweden, denmark and finland distribute data in this format (among others).
+This DuckDB extension allows you read [Px-files](https://www.scb.se/en/services/statistical-programs-for-px-files/px-file-format/). `.px` is file format used to publish and distribute (official) statistics. For example, the statistical offices of Sweden, Denmark and Finland distribute data in this format (among others).
+
+## Installing
+
+```sql
+INSTALL px FROM community;
+LOAD px;
+```
 
 ## Usage
 
-After a build/install, you can write arbitrary SQL-queries over px-files with the `read_px` function:
+After a installing, you can write arbitrary SQL-queries over px-files with the `read_px` function:
 ```sql
 SELECT * FROM read_px('your_dataset.px');
 ```
