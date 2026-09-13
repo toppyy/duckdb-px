@@ -33,18 +33,22 @@ struct PxReader {
 
   std::string value_type;
 
-  string GetNextValue() {
-    string rtrn;
-    while (data_offset < data_size) {
-      rtrn += data[data_offset++];
-      if (IsWhiteSpace(data[data_offset]))
-        break;
+  StringView GetNextValue() {
+    // Find the end of the current token (next whitespace or end of data)
+    size_t start = data_offset;
+    while (data_offset < data_size && !IsWhiteSpace(data[data_offset])) {
+      data_offset++;
     }
+
+    // Create StringView - no allocation!
+    StringView rtrn(data + start, data_offset - start);
+
+    // Skip trailing whitespace
     data_offset = SkipWhiteSpace(data, data_offset, data_size);
     return rtrn;
   }
 
-  void AssignValue(size_t variable, size_t out_idx, const string &val) {
+  void AssignValue(size_t variable, size_t out_idx, StringView val) {
     if (value_type == "float") {
       AssignFloatValue(variable, out_idx, val);
       return;
@@ -53,28 +57,13 @@ struct PxReader {
     AssignIntegerValue(variable, out_idx, val);
   }
 
-  void AssignFloatValue(size_t variable, size_t out_idx, const string &val) {
-    float fval;
-
-    try {
-      fval = std::stof(val);
-    } catch (const std::invalid_argument &e) {
-      std::cerr << "Invalid argument: " << e.what() << std::endl;
-    } catch (const std::out_of_range &e) {
-      std::cerr << "Out of range: " << e.what() << std::endl;
-    }
+  void AssignFloatValue(size_t variable, size_t out_idx, StringView val) {
+    float fval = ParseFloat(val);
     FlatVector::GetData<float>(*read_vecs[variable])[out_idx] = fval;
   }
 
-  void AssignIntegerValue(size_t variable, size_t out_idx, const string &val) {
-    int32_t ival;
-    try {
-      ival = std::stoi(val);
-    } catch (const std::invalid_argument &e) {
-      std::cerr << "Invalid argument: " << e.what() << std::endl;
-    } catch (const std::out_of_range &e) {
-      std::cerr << "Out of range: " << e.what() << std::endl;
-    }
+  void AssignIntegerValue(size_t variable, size_t out_idx, StringView val) {
+    int32_t ival = ParseInt32(val);
     FlatVector::GetData<int32_t>(*read_vecs[variable])[out_idx] = ival;
   }
 
@@ -84,17 +73,23 @@ struct PxReader {
       return;
     }
 
+    // Reset sequential counters on first read
+    if (observations_read == 0) {
+      for (size_t i = 0; i < pxfile.variable_count; i++) {
+        pxfile.GetVariable(i).ResetSequentialCounter();
+      }
+    }
+
     // There are actually variables + 1 vectors in the output
     // pxfile.variable_count only counts for variables excl. "value"
     // which is always present
     column_t variables = pxfile.variable_count;
     idx_t out_idx = 0;
-    string val;
 
     while (true) {
       for (size_t col_idx = 0; col_idx <= variables; col_idx++) {
         if (col_idx == variables) {
-          val = GetNextValue();
+          StringView val = GetNextValue();
           if (!IsNumeric(val)) {
             FlatVector::Validity(*read_vecs[variables]).SetInvalid(out_idx);
             continue;
@@ -105,7 +100,7 @@ struct PxReader {
         }
 
         size_t selectedIndex =
-            pxfile.GetCodeIndexForVariable(col_idx, observations_read);
+            pxfile.GetVariable(col_idx).NextCodeIndexSequential();
 
         auto &sel_vector = DictionaryVector::SelVector(*read_vecs[col_idx]);
         sel_vector[out_idx] = selectedIndex;
