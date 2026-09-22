@@ -391,9 +391,10 @@ struct PxMetadataGlobalState : GlobalTableFunctionState {
   idx_t offset = 0;
 };
 
-static unique_ptr<FunctionData> PxMetadataBindFunction(
-    ClientContext &context, TableFunctionBindInput &input,
-    vector<LogicalType> &return_types, vector<string> &names) {
+static unique_ptr<FunctionData>
+PxMetadataBindFunction(ClientContext &context, TableFunctionBindInput &input,
+                       vector<LogicalType> &return_types,
+                       vector<string> &names) {
   auto &filename = input.inputs[0];
   if (filename.IsNull()) {
     throw BinderException("Cannot use NULL as file name for read_px_metadata");
@@ -478,8 +479,8 @@ PxMetadataGlobalInit(ClientContext &context, TableFunctionInitInput &input) {
   return std::move(gstate);
 }
 
-static void PxMetadataFunction(ClientContext &context,
-                               TableFunctionInput &data, DataChunk &output) {
+static void PxMetadataFunction(ClientContext &context, TableFunctionInput &data,
+                               DataChunk &output) {
   auto &bind_data = data.bind_data->Cast<PxMetadataBindData>();
   auto &gstate = data.global_state->Cast<PxMetadataGlobalState>();
 
@@ -527,9 +528,9 @@ static void LoadInternal(ExtensionLoader &loader) {
   info.on_conflict = OnCreateConflict::ERROR_ON_CONFLICT;
   loader.RegisterFunction(std::move(info));
 
-  TableFunction px_metadata_function(
-      "read_px_metadata", {LogicalType::VARCHAR}, PxMetadataFunction,
-      PxMetadataBindFunction, PxMetadataGlobalInit);
+  TableFunction px_metadata_function("read_px_metadata", {LogicalType::VARCHAR},
+                                     PxMetadataFunction, PxMetadataBindFunction,
+                                     PxMetadataGlobalInit);
   CreateTableFunctionInfo meta_info(px_metadata_function);
   FunctionDescription meta_desc;
   meta_desc.parameter_names = {"file"};
@@ -540,7 +541,8 @@ static void LoadInternal(ExtensionLoader &loader) {
       "(VARCHAR, NULL if no VALUES entry exists).";
   meta_desc.examples = {
       "SELECT * FROM read_px_metadata('test/data/statfin_vaerak_pxt_11rc.px');",
-      "SELECT * FROM read_px_metadata('test/data/statfin_vaerak_pxt_11rc.px') WHERE variable='Sukupuoli';"};
+      "SELECT * FROM read_px_metadata('test/data/statfin_vaerak_pxt_11rc.px') "
+      "WHERE variable='Sukupuoli';"};
   meta_desc.categories = {"Scan"};
   meta_info.descriptions.push_back(std::move(meta_desc));
   meta_info.on_conflict = OnCreateConflict::ERROR_ON_CONFLICT;
