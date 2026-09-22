@@ -1,0 +1,123 @@
+# name: test/sql/read_px_metadata.test
+# description: test read_px_metadata CODE-VALUE pairs
+# group: [sql]
+
+require px
+
+statement ok
+PRAGMA enable_verification
+
+# schema
+query II
+SELECT column_name, column_type FROM (DESCRIBE SELECT * FROM read_px_metadata('test/data/statfin_vaerak_pxt_11rc.px'));
+----
+variable	VARCHAR
+code	VARCHAR
+value	VARCHAR
+
+# total entries = sum of codes per variable: 159 + 3 + 19 + 1 = 182
+query I
+SELECT COUNT(*) FROM read_px_metadata('test/data/statfin_vaerak_pxt_11rc.px');
+----
+182
+
+# distinct variables
+query I
+SELECT COUNT(DISTINCT variable) FROM read_px_metadata('test/data/statfin_vaerak_pxt_11rc.px');
+----
+4
+
+# CODE-VALUE pairs for Sukupuoli (ordered by code for determinism)
+query III
+SELECT variable, code, value FROM read_px_metadata('test/data/statfin_vaerak_pxt_11rc.px') WHERE variable='Sukupuoli' ORDER BY code;
+----
+Sukupuoli	1	Miehet
+Sukupuoli	2	Naiset
+Sukupuoli	SSS	Yhteensä
+
+# CODE-VALUE for Vuosi spot check
+query III
+SELECT variable, code, value FROM read_px_metadata('test/data/statfin_vaerak_pxt_11rc.px') WHERE variable='Vuosi' AND code='1900';
+----
+Vuosi	1900	1900
+
+# CODE-VALUE for Ikä with hyphen mapping
+query III
+SELECT variable, code, value FROM read_px_metadata('test/data/statfin_vaerak_pxt_11rc.px') WHERE variable='Ikä' AND code='0-4';
+----
+Ikä	0-4	0 - 4
+
+# Tiedot single entry
+query III
+SELECT variable, code, value FROM read_px_metadata('test/data/statfin_vaerak_pxt_11rc.px') WHERE variable='Tiedot';
+----
+Tiedot	vaesto	Väestö 31.12.
+
+# Another file: statfin_akay_pxt_001 (4 + 32 + 3 + 2 = 41)
+query I
+SELECT COUNT(*) FROM read_px_metadata('test/data/statfin_akay_pxt_001.px');
+----
+41
+
+query III
+SELECT variable, code, value FROM read_px_metadata('test/data/statfin_akay_pxt_001.px') WHERE variable='Sukupuoli' ORDER BY code;
+----
+Sukupuoli	1	Miehet
+Sukupuoli	2	Naiset
+Sukupuoli	S	Yhteensä
+
+# SCB file (164 + 111 + 1 = 276)
+query I
+SELECT COUNT(*) FROM read_px_metadata('test/data/SCB-BefolkningR1860N.px');
+----
+276
+
+query III
+SELECT variable, code, value FROM read_px_metadata('test/data/SCB-BefolkningR1860N.px') WHERE variable='observations' ORDER BY code;
+----
+observations	0000053A	Population
+
+# Filtering via SQL
+query I
+SELECT COUNT(*) FROM read_px_metadata('test/data/statfin_vaerak_pxt_11rc.px') WHERE code LIKE '19%';
+----
+100
+
+# Should work even when DATA is truncated (metadata does not scan DATA)
+query I
+SELECT COUNT(*) FROM read_px_metadata('test/data/crash/truncated_data.px');
+----
+4
+
+# Minimal file
+query III
+SELECT variable, code, value FROM read_px_metadata('test/data/crash/valid_minimal.px') ORDER BY variable, code;
+----
+var1	a	a
+var1	b	b
+var2	x	x
+var2	y	y
+
+# Error cases mirror read_px: mismatch VALUES/CODES should error
+statement error
+SELECT * FROM read_px_metadata('test/data/crash/mismatch_values_codes.px')
+----
+Binder Error
+
+# Missing file
+statement error
+SELECT * FROM read_px_metadata('test/data/crash/does_not_exist.px')
+----
+not found
+
+# Empty file
+statement error
+SELECT * FROM read_px_metadata('test/data/crash/empty.px')
+----
+Binder Error
+
+# No codes
+statement error
+SELECT * FROM read_px_metadata('test/data/crash/no_codes.px')
+----
+Binder Error
