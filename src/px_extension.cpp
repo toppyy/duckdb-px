@@ -362,11 +362,22 @@ PxGlobalInit(ClientContext &context, TableFunctionInitInput &input) {
 static void LoadInternal(ExtensionLoader &loader) {
 
   // Register table function
-  auto px_table_function =
-      TableFunction("read_px", {LogicalType::VARCHAR}, PxTableFunction,
-                    PxBindFunction, PxGlobalInit);
-
-  loader.RegisterFunction(px_table_function);
+  TableFunction px_table_function("read_px", {LogicalType::VARCHAR},
+                                  PxTableFunction, PxBindFunction,
+                                  PxGlobalInit);
+  CreateTableFunctionInfo info(px_table_function);
+  FunctionDescription desc;
+  desc.parameter_names = {"file"};
+  desc.description =
+      "Reads a PX (PC-Axis) file and returns its contents as a table with "
+      "STUB/HEADING variables as VARCHAR columns and a 'value' column (INTEGER "
+      "if DECIMALS=0, otherwise FLOAT).";
+  desc.examples = {
+      "SELECT * FROM read_px('test/data/statfin_vaerak_pxt_11rc.px');"};
+  desc.categories = {"Scan"};
+  info.descriptions.push_back(std::move(desc));
+  info.on_conflict = OnCreateConflict::ERROR_ON_CONFLICT;
+  loader.RegisterFunction(std::move(info));
 };
 
 void PxExtension::Load(ExtensionLoader &loader) { LoadInternal(loader); }
