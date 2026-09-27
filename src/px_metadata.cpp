@@ -1,6 +1,6 @@
 #include "px_metadata.hpp"
 
-#include "px.hpp"
+#include "px_file.hpp"
 
 namespace duckdb {
 

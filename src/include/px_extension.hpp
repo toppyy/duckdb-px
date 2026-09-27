@@ -6,7 +6,7 @@
 #include "duckdb/function/scalar_function.hpp"
 #include <duckdb/parser/parsed_data/create_table_function_info.hpp>
 
-#include "px.hpp"
+#include "px_file.hpp"
 #include "variable.hpp"
 #include "utils.hpp"
 
