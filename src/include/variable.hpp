@@ -19,8 +19,8 @@ public:
   std::string NextCode(size_t row_idx);
   size_t NextCodeIndex(size_t row_idx);
 
-  // Sequential access methods - much faster, no division/modulo
   size_t NextCodeIndexSequential();
+  size_t GetCurrentCodeIndex();
   void ResetSequentialCounter();
 
 private:

@@ -1,0 +1,238 @@
+# name: test/sql/filter_pushdown.test
+# description: test filter pushdown of read_px
+# group: [sql]
+
+require px
+
+statement ok
+PRAGMA enable_verification
+
+# A filter on the first variable is resolved into the codes of the variable
+query II
+SELECT vuosi, CAST(value AS INT) AS population
+FROM read_px('test/data/statfin_vaerak_pxt_11rc.px')
+WHERE
+	vuosi = '1900'
+	AND sukupuoli = 'SSS'
+	AND ikä = 'SSS';
+----
+1900	2655900
+
+# Multiple codes can be pushed down, also when some of them are not in the file
+query I
+SELECT COUNT(1) AS N
+FROM read_px('test/data/statfin_vaerak_pxt_11rc.px')
+WHERE vuosi IN ('1900', '2000', '1850');
+----
+114
+
+# A disjunction of equalities on the first variable
+query I
+SELECT COUNT(1) AS N
+FROM read_px('test/data/statfin_vaerak_pxt_11rc.px')
+WHERE vuosi = '1900' OR vuosi = '2000';
+----
+114
+
+# A value that is not a code of the variable at all
+query I
+SELECT COUNT(1) AS N
+FROM read_px('test/data/statfin_vaerak_pxt_11rc.px')
+WHERE vuosi = '1800';
+----
+0
+
+# Two filters on the first variable must both match
+query I
+SELECT COUNT(1) AS N
+FROM read_px('test/data/statfin_vaerak_pxt_11rc.px')
+WHERE vuosi = '1900' AND vuosi = '2000';
+----
+0
+
+# A filter on the first variable combined with a filter on another variable
+query I
+SELECT COUNT(1) AS N
+FROM read_px('test/data/statfin_khi_pxt_11xb.px')
+WHERE Kuukausi = '2025M01' AND Tiedot = 'vuosimuutos' AND Hyödyke = '0';
+----
+1
+
+# A code in the middle of the file, the scan stops once it has been read
+query I
+SELECT COUNT(1) AS N FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi = '2025M05';
+----
+3675
+
+# The last code of the first variable
+query I
+SELECT COUNT(1) AS N FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi = '2025M10';
+----
+3675
+
+# A filter on a variable that is not the first one
+query I
+SELECT COUNT(1) AS N
+FROM read_px('test/data/statfin_khi_pxt_11xb.px')
+WHERE Tiedot = 'vuosimuutos' AND Hyödyke = '0';
+----
+130
+
+# The 'value' column has no codes and can never be pushed down
+query I
+SELECT COUNT(1) AS N
+FROM read_px('test/data/statfin_khi_pxt_11xb.px')
+WHERE value = 0.68 AND Kuukausi = '2025M01';
+----
+3
+
+# A pushed down filter returns the same rows as the same filter written in a
+# form that can not be pushed down, also when the result is larger than a
+# single vector
+query IIII
+SELECT
+	(SELECT COUNT(1) FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi = '2025M01'),
+	(SELECT SUM(CAST(value AS BIGINT)) FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi = '2025M01'),
+	(SELECT COUNT(1) FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi >= '2025M01' AND Kuukausi <= '2025M01'),
+	(SELECT SUM(CAST(value AS BIGINT)) FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi >= '2025M01' AND Kuukausi <= '2025M01');
+----
+3675	78996	3675	78996
+
+# The same, but with more than one code pushed down
+query IIII
+SELECT
+	(SELECT COUNT(1) FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi IN ('2025M01', '2025M02')),
+	(SELECT SUM(CAST(value AS BIGINT)) FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi IN ('2025M01', '2025M02')),
+	(SELECT COUNT(1) FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi >= '2025M01' AND Kuukausi <= '2025M02'),
+	(SELECT SUM(CAST(value AS BIGINT)) FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi >= '2025M01' AND Kuukausi <= '2025M02');
+----
+7350	158416	7350	158416
+
+# The codes are read in the order in which they are in the file
+query II
+SELECT Kuukausi, value
+FROM read_px('test/data/statfin_khi_pxt_11xb.px')
+WHERE Kuukausi IN ('2025M02', '2025M01')
+	AND Tiedot = 'vuosimuutos'
+	AND Hyödyke = '0'
+ORDER BY Kuukausi;
+----
+2025M01	0.68
+2025M02	0.45
+
+# The binder casts the column instead of the constant, so nothing can be
+# pushed down, but the filter is still applied by DuckDB
+query I
+SELECT COUNT(1) AS N
+FROM read_px('test/data/statfin_vaerak_pxt_11rc.px')
+WHERE vuosi = 1900;
+----
+57
+
+# A filter with a prepared statement is re-bound for every execution
+statement ok
+PREPARE px_pushdown_test AS
+	SELECT COUNT(1) AS N FROM read_px('test/data/statfin_vaerak_pxt_11rc.px') WHERE vuosi = $1;
+
+query I
+EXECUTE px_pushdown_test('1900');
+----
+57
+
+query I
+EXECUTE px_pushdown_test('2000');
+----
+57
+
+query I
+EXECUTE px_pushdown_test('1850');
+----
+0
+
+# The explain plan has description of pushdown
+query II
+EXPLAIN (FORMAT json) SELECT * FROM read_px('test/data/statfin_vaerak_pxt_11rc.px') WHERE vuosi='2000';
+----
+physical_plan	<REGEX>:.*"name": "FILTER".*"name": "READ_PX".*"File Filters": "Vuosi = '2000'".*
+
+# The description is written once, the optimizer can run more than once over
+# the same scan
+query II
+EXPLAIN (FORMAT json) SELECT * FROM read_px('test/data/statfin_vaerak_pxt_11rc.px') WHERE vuosi = '2000' AND vuosi = '2000';
+----
+physical_plan	<REGEX>:.*"File Filters": "Vuosi = '2000'",\s*"Estimated Cardinality".*
+
+# Several pushed down values are described as a list of values
+query II
+EXPLAIN (FORMAT json) SELECT * FROM read_px('test/data/statfin_vaerak_pxt_11rc.px') WHERE vuosi IN ('1900', '2000');
+----
+physical_plan	<REGEX>:.*"File Filters": "Vuosi IN \('1900', '2000'\)".*
+
+# A disjunction of equalities is pushed down as the set of values that it
+# matches
+query II
+EXPLAIN (FORMAT json) SELECT * FROM read_px('test/data/statfin_vaerak_pxt_11rc.px') WHERE vuosi = '1900' OR vuosi = '2000';
+----
+physical_plan	<REGEX>:.*"File Filters": "Vuosi IN \('1900', '2000'\)".*
+
+# A value that is not a code of the variable is described as well, the scan
+# simply does not return any observations
+query II
+EXPLAIN (FORMAT json) SELECT * FROM read_px('test/data/statfin_vaerak_pxt_11rc.px') WHERE vuosi = '1800';
+----
+physical_plan	<REGEX>:.*"File Filters": "Vuosi = '1800'".*
+
+# Only the first five values of a longer list are described
+query II
+EXPLAIN (FORMAT json) SELECT * FROM read_px('test/data/statfin_vaerak_pxt_11rc.px') WHERE vuosi IN ('1900', '1950', '1970', '1980', '1990', '2000', '2010');
+----
+physical_plan	<REGEX>:.*"File Filters": "Vuosi IN \('1900', '1950', '1970', '1980', '1990', \.\.\. \(7 values\)\)".*
+
+# The code of the first variable is described with the name of the variable,
+# the filters on the other variables are not described
+query II
+EXPLAIN (FORMAT json) SELECT * FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi = '2025M01' AND Tiedot = 'vuosimuutos' AND Hyödyke = '0';
+----
+physical_plan	<REGEX>:.*"File Filters": "Kuukausi = '2025M01'".*
+
+# The 'value' column has no codes, the filter on the first variable is still
+# pushed down and is the only one that is described
+query II
+EXPLAIN (FORMAT json) SELECT * FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi IN ('2025M01', '2025M02') AND value = 0.68;
+----
+physical_plan	<REGEX>:.*"File Filters": "Kuukausi IN \('2025M01', '2025M02'\)".*
+
+# The plan of a prepared statement describes the pushdown as well
+statement ok
+PREPARE px_pushdown_explain AS
+	SELECT * FROM read_px('test/data/statfin_vaerak_pxt_11rc.px') WHERE vuosi = $1;
+
+query II
+EXPLAIN (FORMAT json) EXECUTE px_pushdown_explain('1900');
+----
+physical_plan	<REGEX>:.*"File Filters": "Vuosi = '1900'".*
+
+# A filter on a variable that is not the first one is not pushed down
+query II
+EXPLAIN (FORMAT json) SELECT * FROM read_px('test/data/statfin_vaerak_pxt_11rc.px') WHERE sukupuoli = 'SSS' AND ikä = 'SSS';
+----
+physical_plan	<!REGEX>:.*"File Filters".*
+
+# A comparison of the codes of the first variable is not pushed down
+query II
+EXPLAIN (FORMAT json) SELECT * FROM read_px('test/data/statfin_vaerak_pxt_11rc.px') WHERE vuosi >= '1900' AND vuosi <= '1900';
+----
+physical_plan	<!REGEX>:.*"File Filters".*
+
+# The binder casts the column instead of the constant, the filter can not be
+# pushed down
+query II
+EXPLAIN (FORMAT json) SELECT * FROM read_px('test/data/statfin_vaerak_pxt_11rc.px') WHERE vuosi = 1900;
+----
+physical_plan	<!REGEX>:.*"File Filters".*
+
+# The 'value' column on its own is not pushed down either
+query II
+EXPLAIN (FORMAT json) SELECT * FROM read_px('test/data/statfin_vaerak_pxt_11rc.px') WHERE value = 1;
+----
+physical_plan	<!REGEX>:.*"File Filters".*
