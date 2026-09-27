@@ -143,16 +143,9 @@ void PxReader::Read(DataChunk &output, const PxCodeFilter &code_filter) {
   output.SetCardinality(out_idx);
 }
 
-const string &PxReader::GetFileName() { return filename; }
-
-const vector<string> &PxReader::GetNames() { return names; }
-
-const vector<LogicalType> &PxReader::GetTypes() { return return_types; }
-
-PxReader::PxReader(ClientContext &context, const string filename_p)
+PxReader::PxReader(ClientContext &context, const string filename)
     : pxfile(), data_offset(0), data_size(0), data(nullptr), read_vecs(),
       return_types(), names(), observations_read(0), value_type("float") {
-  filename = filename_p;
   auto &fs = FileSystem::GetFileSystem(context);
   if (!fs.FileExists(filename)) {
     throw InvalidInputException("PX-file %s not found", filename);

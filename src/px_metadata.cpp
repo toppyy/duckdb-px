@@ -65,7 +65,6 @@ PxMetadataBindFunction(ClientContext &context, TableFunctionBindInput &input,
       PxMetadataEntry e;
       e.variable = var.GetName();
       e.code = var.GetCodes()[j];
-      e.position = j;
       if (j < vc) {
         e.value = var.GetValues()[j];
         e.has_value = true;
@@ -76,7 +75,7 @@ PxMetadataBindFunction(ClientContext &context, TableFunctionBindInput &input,
     }
   }
 
-  // Define output schema: variable, code, value, code_index
+  // Define output schema: variable, code, value
   names = {"variable", "code", "value"};
   return_types = {LogicalType::VARCHAR, LogicalType::VARCHAR,
                   LogicalType::VARCHAR};

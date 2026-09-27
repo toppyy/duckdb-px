@@ -39,8 +39,6 @@ public:
   size_t ParseMetadata(const char *data, size_t idx, size_t data_size);
   int GetDecimals();
 
-  std::string GetValueForVariable(size_t var_idx, size_t row_idx);
-  size_t GetCodeIndexForVariable(size_t var_idx, size_t row_idx);
   std::vector<std::string> &GetVariableCodes(size_t var_idx);
   std::vector<std::string> &GetVariableValues(size_t var_idx);
   Variable &GetVariable(size_t var_idx);

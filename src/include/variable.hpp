@@ -16,8 +16,6 @@ public:
   size_t ValueCount();
 
   void SetRepetitionFactor(size_t p_rep_factor);
-  std::string NextCode(size_t row_idx);
-  size_t NextCodeIndex(size_t row_idx);
 
   size_t NextCodeIndexSequential();
   size_t GetCurrentCodeIndex();

@@ -39,23 +39,6 @@ size_t ParseList(const char *data, size_t offset, size_t data_size,
   return idx;
 }
 
-size_t ParseList(const char *data, std::vector<std::string> &result, char end) {
-  size_t len = 0;
-  while (data[len] != '\0' && data[len] != end) {
-    len++;
-    if (len > 10000000) {
-      throw duckdb::BinderException("List too large or missing terminator");
-    }
-  }
-  if (data[len] != end) {
-    throw duckdb::BinderException("Unexpected EOF while parsing list");
-  }
-  std::vector<std::string> tmp;
-  size_t consumed = ParseList(data, 0, len + 1, tmp, end);
-  result = std::move(tmp);
-  return consumed;
-}
-
 size_t FindVarName(const char *data, size_t offset, size_t data_size,
                    std::string &varname) {
   size_t idx = 0;
@@ -85,26 +68,10 @@ size_t FindVarName(const char *data, size_t offset, size_t data_size,
   return idx;
 }
 
-size_t FindVarName(const char *data, std::string &varname) {
-  size_t len = 0;
-  while (data[len] != '\0')
-    len++;
-  return FindVarName(data, 0, len, varname);
-}
-
 size_t ParseStubOrHeading(const char *data, size_t offset, size_t data_size,
                           PxFile &pxfile) {
   std::vector<std::string> varnames;
   size_t inc = ParseList(data, offset, data_size, varnames);
-  for (auto &name : varnames) {
-    pxfile.AddVariable(name);
-  }
-  return inc;
-}
-
-size_t ParseStubOrHeading(const char *data, PxFile &pxfile) {
-  std::vector<std::string> varnames;
-  size_t inc = ParseList(data, varnames);
   for (auto &name : varnames) {
     pxfile.AddVariable(name);
   }
@@ -130,13 +97,6 @@ size_t ParseValues(const char *data, size_t offset, size_t data_size,
   idx += ParseList(data, offset + idx, data_size,
                    pxfile.GetVariableValues(var_idx));
   return idx;
-}
-
-size_t ParseValues(const char *data, PxFile &pxfile) {
-  size_t len = 0;
-  while (data[len] != '\0')
-    len++;
-  return ParseValues(data, 0, len, pxfile);
 }
 
 size_t ParseCodes(const char *data, size_t offset, size_t data_size,
@@ -171,13 +131,6 @@ size_t ParseCodes(const char *data, size_t offset, size_t data_size,
   return idx;
 }
 
-size_t ParseCodes(const char *data, PxFile &pxfile) {
-  size_t len = 0;
-  while (data[len] != '\0')
-    len++;
-  return ParseCodes(data, 0, len, pxfile);
-}
-
 size_t ParseDecimals(const char *data, size_t offset, size_t data_size,
                      int &decimals) {
   size_t idx = 9;
@@ -205,13 +158,6 @@ size_t ParseDecimals(const char *data, size_t offset, size_t data_size,
   return idx;
 }
 
-size_t ParseDecimals(const char *data, int &decimals) {
-  size_t len = 0;
-  while (data[len] != '\0')
-    len++;
-  return ParseDecimals(data, 0, len, decimals);
-}
-
 PxKeyword ParseKeyword(const char *data, size_t remaining) {
   if (remaining >= 5 && std::strncmp(data, "STUB=", 5) == 0) {
     return PxKeyword::STUB;
@@ -232,13 +178,6 @@ PxKeyword ParseKeyword(const char *data, size_t remaining) {
     return PxKeyword::DECIMALS;
   }
   return PxKeyword::UNKNOWN;
-}
-
-PxKeyword ParseKeyword(const char *data) {
-  size_t len = 0;
-  while (data[len] != '\0')
-    len++;
-  return ParseKeyword(data, len);
 }
 
 std::string ISO88591toUTF8(std::string original_string) {

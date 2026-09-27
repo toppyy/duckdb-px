@@ -10,31 +10,15 @@
 
 namespace duckdb {
 
-struct PxReader;
-
-struct PxUnionData {
-
-  string file_name;
-  vector<string> names;
-  vector<LogicalType> types;
-  unique_ptr<PxReader> reader;
-
-  const string &GetFileName() { return file_name; }
-};
-
 //! The reader of a single PX file. It owns the bytes of the file, the schema
 //! that the metadata of the file describes and the vectors that the
 //! observations are materialized into.
 struct PxReader {
 
-  using UNION_READER_DATA = unique_ptr<PxUnionData>;
-
   AllocatedData allocated_data;
-  LogicalType duckdb_type;
   vector<LogicalType> return_types;
   vector<unique_ptr<Vector>> read_vecs;
   vector<string> names;
-  string filename;
   PxFile pxfile;
   size_t data_offset;
   size_t data_size;
@@ -56,12 +40,6 @@ struct PxReader {
   void SkipObservation();
 
   void Read(DataChunk &output, const PxCodeFilter &code_filter);
-
-  const string &GetFileName();
-
-  const vector<string> &GetNames();
-
-  const vector<LogicalType> &GetTypes();
 
   PxReader(ClientContext &context, const string filename);
 };

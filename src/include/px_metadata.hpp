@@ -11,7 +11,6 @@ struct PxMetadataEntry {
   string code;
   string value;
   bool has_value;
-  idx_t position;
 };
 
 //! The bind data of the read_px_metadata table function

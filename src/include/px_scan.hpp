@@ -17,14 +17,6 @@ struct PxBindData : FunctionData {
   //! Filter on the first variable that the optimizer pushed down into the scan
   PxCodeFilter code_filter;
 
-  void Initialize(shared_ptr<PxReader> p_reader) {
-    reader = std::move(p_reader);
-  }
-
-  void Initialize(ClientContext &, shared_ptr<PxReader> reader) {
-    Initialize(reader);
-  }
-
   bool Equals(const FunctionData &other_p) const override {
     D_ASSERT(false);
     auto &other = other_p.Cast<PxBindData>();

@@ -9,28 +9,6 @@ const std::string &Variable::GetName() { return name; };
 size_t Variable::CodeCount() { return codes.size(); };
 size_t Variable::ValueCount() { return values.size(); };
 
-size_t Variable::NextCodeIndex(size_t row_idx) {
-  if (repetition_factor == 0 || codes.empty()) {
-    return 0;
-  }
-  size_t denom = repetition_factor * codes.size();
-  if (denom == 0)
-    return 0;
-  size_t i = row_idx % denom;
-  return i / repetition_factor;
-}
-
-std::string Variable::NextCode(size_t row_idx) {
-  if (repetition_factor == 0 || codes.empty()) {
-    return "";
-  }
-  size_t denom = repetition_factor * codes.size();
-  if (denom == 0)
-    return "";
-  size_t i = row_idx % denom;
-  return codes[i / repetition_factor];
-}
-
 void Variable::SetRepetitionFactor(size_t p_rep_factor) {
   repetition_factor = p_rep_factor;
 }
