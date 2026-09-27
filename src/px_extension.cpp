@@ -611,6 +611,26 @@ static void AddCodeFilter(vector<PxCodeFilter> &code_filters,
   code_filters.push_back(std::move(code_filter));
 }
 
+string PxDescribePushdown(const PxFilterValues &filters) {
+
+  string columns = to_string(filters.column_index);
+  string codes;
+
+  for (idx_t i = 0; i < filters.values.size(); i++) {
+    if (i > 0) {
+      codes += ", ";
+    }
+    if (filters.values[i].type() == LogicalType::VARCHAR) {
+      codes += StringValue::Get(filters.values[i]);
+    }
+  }
+
+  return StringUtil::Format("filtered values of column(s) %s: %s",
+                            columns.c_str(), codes.c_str());
+}
+
+
+
 //! Called by the optimizer to let the scan look at the filters that are pushed
 //! into it. The filters are left in place: DuckDB applies them to the rows that
 //! the scan returns anyway, so all that is gained here is that the scan does
@@ -641,7 +661,11 @@ static void PxPushdownComplexFilter(ClientContext &context, LogicalGet &get,
     AddCodeIndexes(context, pxfile.GetVariable(0), filter_values.values,
                    code_filter.code_indexes);
     AddCodeFilter(bind_data.code_filters, std::move(code_filter));
+
+    get.extra_info.file_filters =
+        PxDescribePushdown(filter_values);
   }
+
 }
 
 struct PxMetadataEntry {
