@@ -31,7 +31,7 @@ StringView PxReader::GetNextValue() {
 }
 
 void PxReader::AssignValue(size_t variable, size_t out_idx, StringView val) {
-  if (value_type == "float") {
+  if (value_type == PxValueType::FLOAT) {
     AssignFloatValue(variable, out_idx, val);
     return;
   }
@@ -147,7 +147,8 @@ void PxReader::Read(DataChunk &output, const PxCodeFilter &code_filter) {
 
 PxReader::PxReader(ClientContext &context, const string filename)
     : pxfile(), data_offset(0), data_size(0), data(nullptr), read_vecs(),
-      return_types(), names(), observations_read(0), value_type("float") {
+      return_types(), names(), observations_read(0),
+      value_type(PxValueType::FLOAT) {
   auto source = ReadPxFile(context, filename);
   allocated_data = std::move(source.allocated_data);
   data = const_char_ptr_cast(allocated_data.get());
@@ -229,13 +230,13 @@ void PxReader::SetRepetitionFactors() {
 void PxReader::AddValueColumn(int decimals) {
   names.push_back("value");
   if (decimals > 0) {
-    value_type = "float";
+    value_type = PxValueType::FLOAT;
     read_vecs.push_back(make_uniq<Vector>(LogicalType::FLOAT));
     return_types.push_back(LogicalType::FLOAT);
     return;
   }
 
-  value_type = "int";
+  value_type = PxValueType::INTEGER;
   read_vecs.push_back(make_uniq<Vector>(LogicalType::INTEGER));
   return_types.push_back(LogicalType::INTEGER);
 }

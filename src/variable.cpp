@@ -1,5 +1,7 @@
 #include "variable.hpp"
 
+namespace duckdb {
+
 Variable::Variable(std::string p_name)
     : name(p_name), repetition_factor(0), codes(), values(),
       current_code_index(0), count_in_current_code(0){};
@@ -43,3 +45,5 @@ void Variable::ResetSequentialCounter() {
 }
 
 size_t Variable::GetCurrentCodeIndex() { return current_code_index; }
+
+} // namespace duckdb

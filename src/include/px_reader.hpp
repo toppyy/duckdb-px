@@ -10,6 +10,9 @@
 
 namespace duckdb {
 
+//! The type of the "value" column, guessed from the DECIMALS keyword
+enum class PxValueType : uint8_t { INTEGER, FLOAT };
+
 //! The reader of a single PX file. It owns the bytes of the file, the schema
 //! that the metadata of the file describes and the vectors that the
 //! observations are materialized into.
@@ -26,7 +29,7 @@ struct PxReader {
   const char *data;
   std::mutex read_lock;
 
-  std::string value_type;
+  PxValueType value_type;
 
   StringView GetNextValue();
 

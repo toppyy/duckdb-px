@@ -1,16 +1,11 @@
 #pragma once
 
 #include "duckdb.hpp"
-#include "duckdb/common/exception.hpp"
-#include "duckdb/common/string_util.hpp"
-#include "duckdb/function/scalar_function.hpp"
+
+//! The bundle above only forward-declares CreateTableFunctionInfo and does not
+//! know FunctionDescription at all: the API that documents a function in
+//! duckdb_functions() is not part of it.
 #include <duckdb/parser/parsed_data/create_table_function_info.hpp>
-
-#include "px_file.hpp"
-#include "variable.hpp"
-#include "utils.hpp"
-
-#include <iostream>
 
 namespace duckdb {
 

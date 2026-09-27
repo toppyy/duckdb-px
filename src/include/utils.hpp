@@ -23,13 +23,13 @@ public:
   char at(size_t pos) const { return data_[pos]; }
 };
 
-} // namespace duckdb
-
 bool IsWhiteSpace(char c);
-bool IsNumeric(duckdb::StringView val);
+bool IsNumeric(StringView val);
 
 size_t SkipWhiteSpace(const char *data, size_t offset, size_t size);
 
-// Manual parsing functions for C++11 compatibility
-float ParseFloat(duckdb::StringView sv);
-int32_t ParseInt32(duckdb::StringView sv);
+// Manual parsing functions for C++11 StringView compatibility
+float ParseFloat(StringView sv);
+int32_t ParseInt32(StringView sv);
+
+} // namespace duckdb

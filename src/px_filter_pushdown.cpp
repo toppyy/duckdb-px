@@ -1,10 +1,13 @@
 #include "px_filter_pushdown.hpp"
 
+//! duckdb.hpp only forward-declares the planner types that this file works
+//! with, so the definitions have to be included here.
 #include "duckdb/planner/expression/bound_columnref_expression.hpp"
 #include "duckdb/planner/expression/bound_comparison_expression.hpp"
 #include "duckdb/planner/expression/bound_conjunction_expression.hpp"
 #include "duckdb/planner/expression/bound_constant_expression.hpp"
 #include "duckdb/planner/expression/bound_operator_expression.hpp"
+#include "duckdb/planner/operator/logical_get.hpp"
 
 namespace duckdb {
 

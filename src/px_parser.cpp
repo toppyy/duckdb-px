@@ -2,19 +2,20 @@
 
 #include "px_file.hpp"
 
-#include "duckdb/common/exception.hpp"
-
 #include <cstring>
+#include <stdexcept>
+
+namespace duckdb {
 
 size_t ParseList(const char *data, size_t offset, size_t data_size,
-                 std::vector<std::string> &result, char end) {
+                 std::vector<string> &result, char end) {
   size_t idx = 0;
   bool quote_open = false;
-  std::string element = "";
+  string element = "";
   while (true) {
     if (offset + idx >= data_size) {
-      throw duckdb::BinderException(
-          "Unexpected EOF while parsing list, expected '%c'", end);
+      throw BinderException("Unexpected EOF while parsing list, expected '%c'",
+                            end);
     }
     char c = data[offset + idx];
     if (c == end && !quote_open) {
@@ -34,29 +35,28 @@ size_t ParseList(const char *data, size_t offset, size_t data_size,
     }
   }
   if (quote_open) {
-    throw duckdb::BinderException("Unclosed quote in list");
+    throw BinderException("Unclosed quote in list");
   }
   return idx;
 }
 
 size_t FindVarName(const char *data, size_t offset, size_t data_size,
-                   std::string &varname) {
+                   string &varname) {
   size_t idx = 0;
   char c = 0;
   while (true) {
     if (offset + idx >= data_size) {
-      throw duckdb::BinderException(
-          "Unexpected EOF while parsing variable name");
+      throw BinderException("Unexpected EOF while parsing variable name");
     }
     c = data[offset + idx];
     idx++;
     if (c == '"')
       break;
   }
-  std::string tmp;
+  string tmp;
   while (true) {
     if (offset + idx >= data_size) {
-      throw duckdb::BinderException("Unclosed quote in variable name");
+      throw BinderException("Unclosed quote in variable name");
     }
     c = data[offset + idx];
     idx++;
@@ -70,7 +70,7 @@ size_t FindVarName(const char *data, size_t offset, size_t data_size,
 
 size_t ParseStubOrHeading(const char *data, size_t offset, size_t data_size,
                           PxFile &pxfile) {
-  std::vector<std::string> varnames;
+  std::vector<string> varnames;
   size_t inc = ParseList(data, offset, data_size, varnames);
   for (auto &name : varnames) {
     pxfile.AddVariable(name);
@@ -80,7 +80,7 @@ size_t ParseStubOrHeading(const char *data, size_t offset, size_t data_size,
 
 size_t ParseValues(const char *data, size_t offset, size_t data_size,
                    PxFile &pxfile) {
-  std::string varname;
+  string varname;
   size_t idx = FindVarName(data, offset, data_size, varname);
   size_t var_idx = 0;
   bool var_found = false;
@@ -92,7 +92,7 @@ size_t ParseValues(const char *data, size_t offset, size_t data_size,
     var_idx++;
   }
   if (!var_found)
-    throw duckdb::BinderException(
+    throw BinderException(
         "Values specified for a variable not found in STUB/HEADING");
   idx += ParseList(data, offset + idx, data_size,
                    pxfile.GetVariableValues(var_idx));
@@ -101,7 +101,7 @@ size_t ParseValues(const char *data, size_t offset, size_t data_size,
 
 size_t ParseCodes(const char *data, size_t offset, size_t data_size,
                   PxFile &pxfile) {
-  std::string varname;
+  string varname;
   size_t idx = FindVarName(data, offset, data_size, varname);
   size_t var_idx = 0;
   bool var_found = false;
@@ -113,19 +113,17 @@ size_t ParseCodes(const char *data, size_t offset, size_t data_size,
     var_idx++;
   }
   if (!var_found)
-    throw duckdb::BinderException(
+    throw BinderException(
         "Codes specified for a variable not found in STUB/HEADING");
   idx += ParseList(data, offset + idx, data_size,
                    pxfile.GetVariableCodes(var_idx));
   size_t cc = pxfile.GetVariable(var_idx).CodeCount();
   if (cc == 0) {
-    throw duckdb::BinderException("CODES for variable '%s' is empty",
-                                  varname.c_str());
+    throw BinderException("CODES for variable '%s' is empty", varname.c_str());
   }
   if (cc > STANDARD_VECTOR_SIZE) {
-    throw duckdb::BinderException(
-        "CODES for variable '%s' exceeds limit %d (got %zu)", varname.c_str(),
-        STANDARD_VECTOR_SIZE, cc);
+    throw BinderException("CODES for variable '%s' exceeds limit %d (got %zu)",
+                          varname.c_str(), STANDARD_VECTOR_SIZE, cc);
   }
   pxfile.AddVariableCodeCount(cc);
   return idx;
@@ -134,9 +132,9 @@ size_t ParseCodes(const char *data, size_t offset, size_t data_size,
 size_t ParseDecimals(const char *data, size_t offset, size_t data_size,
                      int &decimals) {
   size_t idx = 9;
-  std::string s_decimals;
+  string s_decimals;
   if (offset + 9 > data_size) {
-    throw duckdb::BinderException("Unexpected EOF while parsing DECIMALS");
+    throw BinderException("Unexpected EOF while parsing DECIMALS");
   }
   while (offset + idx < data_size && data[offset + idx] >= '0' &&
          data[offset + idx] <= '9') {
@@ -144,16 +142,15 @@ size_t ParseDecimals(const char *data, size_t offset, size_t data_size,
     idx++;
   }
   if (s_decimals.empty()) {
-    throw duckdb::BinderException("Invalid DECIMALS value");
+    throw BinderException("Invalid DECIMALS value");
   }
   try {
     decimals = std::stoi(s_decimals);
   } catch (const std::invalid_argument &e) {
-    throw duckdb::BinderException("Invalid DECIMALS value: %s",
-                                  s_decimals.c_str());
+    throw BinderException("Invalid DECIMALS value: %s", s_decimals.c_str());
   } catch (const std::out_of_range &e) {
-    throw duckdb::BinderException("DECIMALS value out of range: %s",
-                                  s_decimals.c_str());
+    throw BinderException("DECIMALS value out of range: %s",
+                          s_decimals.c_str());
   }
   return idx;
 }
@@ -180,8 +177,8 @@ PxKeyword ParseKeyword(const char *data, size_t remaining) {
   return PxKeyword::UNKNOWN;
 }
 
-std::string ISO88591toUTF8(std::string original_string) {
-  std::string rtrn;
+string ISO88591toUTF8(const string &original_string) {
+  string rtrn;
   for (size_t i = 0; i < original_string.size(); i++) {
     switch (original_string[i]) {
     case static_cast<char>(0xe4):
@@ -214,3 +211,5 @@ std::string ISO88591toUTF8(std::string original_string) {
   }
   return rtrn;
 }
+
+} // namespace duckdb

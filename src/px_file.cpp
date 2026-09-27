@@ -1,7 +1,10 @@
 #include "px_file.hpp"
 #include "px_parser.hpp"
-
 #include "utils.hpp"
+
+#include <cstdint>
+
+namespace duckdb {
 
 PxFile::PxFile() : variable_count(0), variables(), observations(1) {
   variables.reserve(10);
@@ -9,7 +12,7 @@ PxFile::PxFile() : variable_count(0), variables(), observations(1) {
 
 void PxFile::AddVariable(std::string name) {
   if (name.empty()) {
-    throw duckdb::BinderException("Variable name cannot be empty");
+    throw BinderException("Variable name cannot be empty");
   }
   variable_count++;
   variables.emplace_back(name);
@@ -19,7 +22,7 @@ int PxFile::GetDecimals() { return decimals; }
 
 size_t PxFile::ParseMetadata(const char *data, size_t idx, size_t data_size) {
   if (data_size == 0) {
-    throw duckdb::BinderException("PX file is empty");
+    throw BinderException("PX file is empty");
   }
   decimals = 3;
   PxKeyword current_keyword = PxKeyword::UNKNOWN;
@@ -28,8 +31,7 @@ size_t PxFile::ParseMetadata(const char *data, size_t idx, size_t data_size) {
       idx++;
     }
     if (idx >= data_size) {
-      throw duckdb::BinderException(
-          "Reached EOF when parsing keywords, missing DATA");
+      throw BinderException("Reached EOF when parsing keywords, missing DATA");
     }
     size_t remaining = data_size - idx;
     current_keyword = ParseKeyword(data + idx, remaining);
@@ -44,7 +46,7 @@ size_t PxFile::ParseMetadata(const char *data, size_t idx, size_t data_size) {
         idx++;
       }
       if (!found) {
-        throw duckdb::BinderException("Reached EOF when parsing keywords");
+        throw BinderException("Reached EOF when parsing keywords");
       }
       if (idx < data_size && data[idx] == ';') {
         idx++;
@@ -73,16 +75,16 @@ size_t PxFile::ParseMetadata(const char *data, size_t idx, size_t data_size) {
     idx++;
   } while (true);
   if (variable_count == 0) {
-    throw duckdb::BinderException("No variables defined via STUB/HEADING");
+    throw BinderException("No variables defined via STUB/HEADING");
   }
   for (size_t i = 0; i < variable_count; i++) {
     if (variables[i].CodeCount() == 0) {
-      throw duckdb::BinderException("Variable '%s' has no CODES",
-                                    variables[i].GetName().c_str());
+      throw BinderException("Variable '%s' has no CODES",
+                            variables[i].GetName().c_str());
     }
     if (variables[i].CodeCount() != variables[i].ValueCount() &&
         variables[i].ValueCount() != 0) {
-      throw duckdb::BinderException(
+      throw BinderException(
           "Number of VALUES and CODES do not match for variable '%s'",
           variables[i].GetName().c_str());
     }
@@ -94,32 +96,34 @@ size_t PxFile::ParseMetadata(const char *data, size_t idx, size_t data_size) {
 
 void PxFile::AddVariableCodeCount(size_t code_count) {
   if (code_count == 0) {
-    throw duckdb::BinderException("Code count cannot be zero");
+    throw BinderException("Code count cannot be zero");
   }
   if (observations > SIZE_MAX / code_count) {
-    throw duckdb::BinderException("Too many observations, product overflow");
+    throw BinderException("Too many observations, product overflow");
   }
   observations *= code_count;
 }
 
-std::vector<std::string> &PxFile::GetVariableCodes(size_t var_idx) {
+std::vector<string> &PxFile::GetVariableCodes(size_t var_idx) {
   if (var_idx >= variables.size()) {
-    throw duckdb::InternalException("GetVariableCodes out of range");
+    throw InternalException("GetVariableCodes out of range");
   }
   return variables[var_idx].GetCodes();
 }
 
-std::vector<std::string> &PxFile::GetVariableValues(size_t var_idx) {
+std::vector<string> &PxFile::GetVariableValues(size_t var_idx) {
   if (var_idx >= variables.size()) {
-    throw duckdb::InternalException("GetVariableValues out of range");
+    throw InternalException("GetVariableValues out of range");
   }
   return variables[var_idx].GetValues();
 }
 
 Variable &PxFile::GetVariable(size_t var_idx) {
   if (var_idx >= variables.size()) {
-    throw duckdb::InternalException("GetVariable out of range %zu / %zu",
-                                    var_idx, variables.size());
+    throw InternalException("GetVariable out of range %zu / %zu", var_idx,
+                            variables.size());
   }
   return variables[var_idx];
 }
+
+} // namespace duckdb

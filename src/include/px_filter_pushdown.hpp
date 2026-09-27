@@ -3,7 +3,6 @@
 #include "px_scan.hpp"
 
 #include "duckdb.hpp"
-#include "duckdb/planner/operator/logical_get.hpp"
 
 namespace duckdb {
 

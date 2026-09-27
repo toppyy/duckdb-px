@@ -4,8 +4,6 @@
 #include "px_metadata.hpp"
 #include "px_scan.hpp"
 
-#include <duckdb/parser/parsed_data/create_table_function_info.hpp>
-
 namespace duckdb {
 
 static void LoadInternal(ExtensionLoader &loader) {

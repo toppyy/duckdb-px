@@ -3,11 +3,13 @@
 #include "variable.hpp"
 
 #include "duckdb.hpp"
-#include "duckdb/common/exception.hpp"
 
-#include <string>
+#include <cstddef>
 #include <vector>
 
+namespace duckdb {
+
+//! The keywords that a PX file is made of
 enum class PxKeyword : uint8_t {
   UNKNOWN = 0,
   STUB = 1,
@@ -32,17 +34,19 @@ public:
   int decimals;
 
 public:
-  void AddVariable(std::string name);
+  void AddVariable(string name);
   void AddVariableCodeCount(size_t code_count);
   //! Parse everything up to and including the DATA keyword, returns the offset
   //! of the first observation
   size_t ParseMetadata(const char *data, size_t idx, size_t data_size);
   int GetDecimals();
 
-  std::vector<std::string> &GetVariableCodes(size_t var_idx);
-  std::vector<std::string> &GetVariableValues(size_t var_idx);
+  std::vector<string> &GetVariableCodes(size_t var_idx);
+  std::vector<string> &GetVariableValues(size_t var_idx);
   Variable &GetVariable(size_t var_idx);
 
 private:
   std::vector<Variable> variables;
 };
+
+} // namespace duckdb

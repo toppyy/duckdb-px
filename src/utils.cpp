@@ -1,6 +1,9 @@
 #include "utils.hpp"
+
 #include <cstdint>
 #include <climits>
+
+namespace duckdb {
 
 bool IsWhiteSpace(char c) {
   if (c == 32)
@@ -14,7 +17,7 @@ bool IsWhiteSpace(char c) {
   return false;
 }
 
-bool IsNumeric(duckdb::StringView val) {
+bool IsNumeric(StringView val) {
   if (val.empty())
     return false;
 
@@ -43,7 +46,7 @@ size_t SkipWhiteSpace(const char *data, size_t offset, size_t size) {
 }
 
 // Manual float parsing for C++11 StringView compatibility
-float ParseFloat(duckdb::StringView sv) {
+float ParseFloat(StringView sv) {
   if (sv.empty())
     return 0.0f;
 
@@ -133,7 +136,7 @@ float ParseFloat(duckdb::StringView sv) {
 }
 
 // Manual int32 parsing for C++11 StringView compatibility
-int32_t ParseInt32(duckdb::StringView sv) {
+int32_t ParseInt32(StringView sv) {
   if (sv.empty())
     return 0;
 
@@ -178,3 +181,5 @@ int32_t ParseInt32(duckdb::StringView sv) {
   int32_t out = (int32_t)result;
   return negative ? -out : out;
 }
+
+} // namespace duckdb
