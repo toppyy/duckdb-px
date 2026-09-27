@@ -13,23 +13,22 @@ namespace duckdb {
 
 struct PxReader;
 
-//! A filter that has been pushed down into the scan while binding the query.
-//! The filter is not stored as an expression: it is resolved into the indexes
-//! of the CODES of a variable that can satisfy it. Those are the very same
-//! indexes that the dictionary vectors of the reader use, so an observation
-//! can be matched with a single integer comparison instead of a string
-//! comparison.
-//! The pushed down filters are only used to skip over the observations that
-//! can not match. DuckDB still applies the filter to the rows that the scan
+//! A filter on the first variable that the optimizer has pushed down into the
+//! scan. The filter is not stored as an expression: it is resolved into the
+//! indexes of the CODES of the variable that can satisfy it. Those are the very
+//! same indexes that the dictionary vectors of the reader use, so an
+//! observation can be matched with a single integer comparison instead of a
+//! string comparison.
+//! The pushed down filter is only used to skip over the observations that can
+//! not match. DuckDB still applies the filter to the rows that the scan
 //! returns, so getting a filter wrong is always safe: it can only make the
 //! scan read more rows than strictly necessary.
 struct PxCodeFilter {
 
-  //! Index of the variable that this filter applies to. This is never the
-  //! index of the "value" column.
-  idx_t variable_index = 0;
-  //! Sorted, unique list of the code indexes that can match the filter. An
-  //! empty list means that no observation can match the filter.
+  //! Whether the optimizer pushed a filter on the first variable down at all
+  bool active = false;
+  //! Sorted, unique list of the code indexes of the first variable that can
+  //! match the filter. Can be empty, then no observation matches the filter.
   vector<idx_t> code_indexes;
 
   bool Matches(idx_t code_index) const {
@@ -37,8 +36,20 @@ struct PxCodeFilter {
                               code_index);
   }
 
-  //! Both filters apply to the same variable and the observations must match
-  //! both of them, so only the codes in both of them can match.
+  //! The observations of a code are stored as one block and the codes are read
+  //! in the order of the CODES, so a code that the reader has moved past can
+  //! never be seen again and does not have to be checked anymore.
+  void RemovePassedCodes(idx_t code_index) {
+    code_indexes.erase(code_indexes.begin(),
+                       std::lower_bound(code_indexes.begin(),
+                                        code_indexes.end(), code_index));
+  }
+
+  //! Returns false when no observation can match the filter anymore
+  bool CanMatch() const { return !code_indexes.empty(); }
+
+  //! Both filters are applied to an observation, so only the codes that both
+  //! of them can match can be read.
   void Intersect(const PxCodeFilter &other) {
     vector<idx_t> intersection;
     std::set_intersection(code_indexes.begin(), code_indexes.end(),
@@ -122,18 +133,6 @@ struct PxReader {
     FlatVector::GetData<int32_t>(*read_vecs[variable])[out_idx] = ival;
   }
 
-  //! Returns true if the observation the reader is currently positioned at can
-  //! match the filters that have been pushed down into the scan
-  bool MatchesCodeFilters(const vector<PxCodeFilter> &code_filters) {
-    for (auto &code_filter : code_filters) {
-      auto &variable = pxfile.GetVariable(code_filter.variable_index);
-      if (!code_filter.Matches(variable.GetCurrentCodeIndex())) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   //! Move the reader to the next observation without materializing it
   void SkipObservation() {
     // The value of an observation that is skipped is never needed
@@ -144,22 +143,10 @@ struct PxReader {
     observations_read++;
   }
 
-  void Read(DataChunk &output, const vector<PxCodeFilter> &code_filters) {
+  void Read(DataChunk &output, const PxCodeFilter &code_filter) {
     std::lock_guard<std::mutex> guard(read_lock);
     if (observations_read >= pxfile.observations) {
       return;
-    }
-
-    // The observations of the first variable are stored as one block of
-    // observations per code, in the order of the CODES. If none of those codes
-    // can match, no observation in the file can match and there is nothing to
-    // read at all.
-    for (auto &code_filter : code_filters) {
-      if (code_filter.variable_index == 0 &&
-          code_filter.code_indexes.empty()) {
-        observations_read = pxfile.observations;
-        return;
-      }
     }
 
     // Reset sequential counters on first read
@@ -169,6 +156,14 @@ struct PxReader {
       }
     }
 
+    // A filter that is pushed down is only used to skip over the observations
+    // that can not match it. The codes that the reader moves past are dropped
+    // from it while scanning, the pushed down filter of the query itself is
+    // left alone.
+    PxCodeFilter remaining = code_filter;
+    idx_t current_code =
+        remaining.active ? pxfile.GetVariable(0).GetCurrentCodeIndex() : 0;
+
     // There are actually variables + 1 vectors in the output
     // pxfile.variable_count only counts for variables excl. "value"
     // which is always present
@@ -177,13 +172,26 @@ struct PxReader {
 
     while (observations_read < pxfile.observations) {
 
-      if (!MatchesCodeFilters(code_filters)) {
-        // The codes of the first variable are the outer loop of the file, so
-        // the observations of a code are stored one after the other. Skipping
-        // them is much cheaper than materializing them and letting DuckDB
-        // throw them away afterwards.
-        SkipObservation();
-        continue;
+      if (remaining.active) {
+        auto code_index = pxfile.GetVariable(0).GetCurrentCodeIndex();
+        if (code_index != current_code) {
+          // The reader has moved on to the next code of the first variable
+          remaining.RemovePassedCodes(code_index);
+          current_code = code_index;
+        }
+        if (!remaining.CanMatch()) {
+          // Every code that could have matched the filter has been read, the
+          // rest of the file can not contain a match anymore
+          observations_read = pxfile.observations;
+          break;
+        }
+        if (!remaining.Matches(code_index)) {
+          // The observations of the first variable are stored as one block of
+          // observations per code, so the whole block is skipped instead of
+          // being materialized and thrown away by DuckDB afterwards.
+          SkipObservation();
+          continue;
+        }
       }
 
       for (size_t col_idx = 0; col_idx <= variables; col_idx++) {
@@ -350,8 +358,8 @@ struct PxBindData : FunctionData {
   vector<string> names;
   vector<LogicalType> types;
   shared_ptr<PxReader> reader;
-  //! Filters that the optimizer pushed down into the scan
-  vector<PxCodeFilter> code_filters;
+  //! Filter on the first variable that the optimizer pushed down into the scan
+  PxCodeFilter code_filter;
 
   void Initialize(shared_ptr<PxReader> p_reader) {
     reader = std::move(p_reader);
@@ -374,7 +382,7 @@ struct PxBindData : FunctionData {
     copy->names = names;
     copy->types = types;
     copy->reader = reader;
-    copy->code_filters = code_filters;
+    copy->code_filter = code_filter;
     return std::move(copy);
   }
 };
@@ -410,7 +418,7 @@ struct PxGlobalState : GlobalTableFunctionState {
   shared_ptr<PxReader> reader;
   vector<column_t> column_ids;
   optional_ptr<TableFilterSet> filters;
-  vector<PxCodeFilter> code_filters;
+  PxCodeFilter code_filter;
 };
 
 static void PxTableFunction(ClientContext &context, TableFunctionInput &data,
@@ -420,7 +428,7 @@ static void PxTableFunction(ClientContext &context, TableFunctionInput &data,
 
   do {
     output.Reset();
-    global_state.reader->Read(output, global_state.code_filters);
+    global_state.reader->Read(output, global_state.code_filter);
 
     if (output.size() > 0) {
       return;
@@ -439,7 +447,7 @@ PxGlobalInit(ClientContext &context, TableFunctionInitInput &input) {
 
   global_state.column_ids = input.column_ids;
   global_state.filters = input.filters;
-  global_state.code_filters = bind_data.code_filters;
+  global_state.code_filter = bind_data.code_filter;
 
   D_ASSERT(bind_data.reader != NULL);
   global_state.reader = bind_data.reader;
@@ -576,11 +584,12 @@ static bool TryGetConstantString(ClientContext &context, const Value &value,
   return true;
 }
 
-//! Add the code indexes of the variable that can match the given values
-static void AddCodeIndexes(ClientContext &context, Variable &variable,
-                           const vector<Value> &values,
-                           vector<idx_t> &code_indexes) {
+//! Resolve the indexes of the CODES of a variable that can match the values
+static vector<idx_t> ResolveCodeIndexes(ClientContext &context,
+                                        Variable &variable,
+                                        const vector<Value> &values) {
   auto &codes = variable.GetCodes();
+  vector<idx_t> code_indexes;
   for (auto &value : values) {
     string code;
     if (!TryGetConstantString(context, value, code)) {
@@ -595,20 +604,7 @@ static void AddCodeIndexes(ClientContext &context, Variable &variable,
   std::sort(code_indexes.begin(), code_indexes.end());
   code_indexes.erase(std::unique(code_indexes.begin(), code_indexes.end()),
                      code_indexes.end());
-}
-
-//! Add a resolved filter to the filters of the scan. Every filter of the query
-//! is applied to an observation, so when a variable has more than one filter
-//! only the codes that all of them can match are read.
-static void AddCodeFilter(vector<PxCodeFilter> &code_filters,
-                          PxCodeFilter &&code_filter) {
-  for (auto &existing : code_filters) {
-    if (existing.variable_index == code_filter.variable_index) {
-      existing.Intersect(code_filter);
-      return;
-    }
-  }
-  code_filters.push_back(std::move(code_filter));
+  return code_indexes;
 }
 
 string PxDescribePushdown(const PxFilterValues &filters) {
@@ -657,10 +653,17 @@ static void PxPushdownComplexFilter(ClientContext &context, LogicalGet &get,
       continue;
     }
     PxCodeFilter code_filter;
-    code_filter.variable_index = 0;
-    AddCodeIndexes(context, pxfile.GetVariable(0), filter_values.values,
-                   code_filter.code_indexes);
-    AddCodeFilter(bind_data.code_filters, std::move(code_filter));
+    code_filter.active = true;
+    code_filter.code_indexes = ResolveCodeIndexes(
+        context, pxfile.GetVariable(0), filter_values.values);
+    if (bind_data.code_filter.active) {
+      // Every filter of the query is applied to an observation, so when the
+      // first variable has more than one filter, only the codes that all of
+      // them can match are read
+      bind_data.code_filter.Intersect(code_filter);
+    } else {
+      bind_data.code_filter = std::move(code_filter);
+    }
 
     get.extra_info.file_filters =
         PxDescribePushdown(filter_values);

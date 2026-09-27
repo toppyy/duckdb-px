@@ -58,6 +58,18 @@ WHERE Kuukausi = '2025M01' AND Tiedot = 'vuosimuutos' AND Hyödyke = '0';
 ----
 1
 
+# A code in the middle of the file, the scan stops once it has been read
+query I
+SELECT COUNT(1) AS N FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi = '2025M05';
+----
+3675
+
+# The last code of the first variable
+query I
+SELECT COUNT(1) AS N FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi = '2025M10';
+----
+3675
+
 # A filter on a variable that is not the first one
 query I
 SELECT COUNT(1) AS N
