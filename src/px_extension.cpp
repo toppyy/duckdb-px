@@ -1,10 +1,52 @@
 #define DUCKDB_EXTENSION_MAIN
 #include "px_extension.hpp"
+#include "duckdb/planner/expression/bound_columnref_expression.hpp"
+#include "duckdb/planner/expression/bound_comparison_expression.hpp"
+#include "duckdb/planner/expression/bound_conjunction_expression.hpp"
+#include "duckdb/planner/expression/bound_constant_expression.hpp"
+#include "duckdb/planner/expression/bound_operator_expression.hpp"
+#include "duckdb/planner/operator/logical_get.hpp"
+#include <algorithm>
 #include <mutex>
 
 namespace duckdb {
 
 struct PxReader;
+
+//! A filter that has been pushed down into the scan while binding the query.
+//! The filter is not stored as an expression: it is resolved into the indexes
+//! of the CODES of a variable that can satisfy it. Those are the very same
+//! indexes that the dictionary vectors of the reader use, so an observation
+//! can be matched with a single integer comparison instead of a string
+//! comparison.
+//! The pushed down filters are only used to skip over the observations that
+//! can not match. DuckDB still applies the filter to the rows that the scan
+//! returns, so getting a filter wrong is always safe: it can only make the
+//! scan read more rows than strictly necessary.
+struct PxCodeFilter {
+
+  //! Index of the variable that this filter applies to. This is never the
+  //! index of the "value" column.
+  idx_t variable_index = 0;
+  //! Sorted, unique list of the code indexes that can match the filter. An
+  //! empty list means that no observation can match the filter.
+  vector<idx_t> code_indexes;
+
+  bool Matches(idx_t code_index) const {
+    return std::binary_search(code_indexes.begin(), code_indexes.end(),
+                              code_index);
+  }
+
+  //! Both filters apply to the same variable and the observations must match
+  //! both of them, so only the codes in both of them can match.
+  void Intersect(const PxCodeFilter &other) {
+    vector<idx_t> intersection;
+    std::set_intersection(code_indexes.begin(), code_indexes.end(),
+                          other.code_indexes.begin(), other.code_indexes.end(),
+                          std::back_inserter(intersection));
+    code_indexes = std::move(intersection);
+  }
+};
 
 struct PxUnionData {
 
@@ -80,10 +122,44 @@ struct PxReader {
     FlatVector::GetData<int32_t>(*read_vecs[variable])[out_idx] = ival;
   }
 
-  void Read(DataChunk &output, const vector<column_t> &column_ids) {
+  //! Returns true if the observation the reader is currently positioned at can
+  //! match the filters that have been pushed down into the scan
+  bool MatchesCodeFilters(const vector<PxCodeFilter> &code_filters) {
+    for (auto &code_filter : code_filters) {
+      auto &variable = pxfile.GetVariable(code_filter.variable_index);
+      if (!code_filter.Matches(variable.GetCurrentCodeIndex())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  //! Move the reader to the next observation without materializing it
+  void SkipObservation() {
+    // The value of an observation that is skipped is never needed
+    GetNextValue();
+    for (size_t col_idx = 0; col_idx < pxfile.variable_count; col_idx++) {
+      pxfile.GetVariable(col_idx).NextCodeIndexSequential();
+    }
+    observations_read++;
+  }
+
+  void Read(DataChunk &output, const vector<PxCodeFilter> &code_filters) {
     std::lock_guard<std::mutex> guard(read_lock);
     if (observations_read >= pxfile.observations) {
       return;
+    }
+
+    // The observations of the first variable are stored as one block of
+    // observations per code, in the order of the CODES. If none of those codes
+    // can match, no observation in the file can match and there is nothing to
+    // read at all.
+    for (auto &code_filter : code_filters) {
+      if (code_filter.variable_index == 0 &&
+          code_filter.code_indexes.empty()) {
+        observations_read = pxfile.observations;
+        return;
+      }
     }
 
     // Reset sequential counters on first read
@@ -99,8 +175,19 @@ struct PxReader {
     column_t variables = pxfile.variable_count;
     idx_t out_idx = 0;
 
-    while (true) {
+    while (observations_read < pxfile.observations) {
+
+      if (!MatchesCodeFilters(code_filters)) {
+        // The codes of the first variable are the outer loop of the file, so
+        // the observations of a code are stored one after the other. Skipping
+        // them is much cheaper than materializing them and letting DuckDB
+        // throw them away afterwards.
+        SkipObservation();
+        continue;
+      }
+
       for (size_t col_idx = 0; col_idx <= variables; col_idx++) {
+
         if (col_idx == variables) {
           StringView val = GetNextValue();
           if (!IsNumeric(val)) {
@@ -121,10 +208,6 @@ struct PxReader {
 
       out_idx++;
       observations_read++;
-      if (observations_read >= pxfile.observations) {
-        break;
-      }
-
       if (out_idx == STANDARD_VECTOR_SIZE) {
         break;
       }
@@ -267,6 +350,8 @@ struct PxBindData : FunctionData {
   vector<string> names;
   vector<LogicalType> types;
   shared_ptr<PxReader> reader;
+  //! Filters that the optimizer pushed down into the scan
+  vector<PxCodeFilter> code_filters;
 
   void Initialize(shared_ptr<PxReader> p_reader) {
     reader = std::move(p_reader);
@@ -289,6 +374,7 @@ struct PxBindData : FunctionData {
     copy->names = names;
     copy->types = types;
     copy->reader = reader;
+    copy->code_filters = code_filters;
     return std::move(copy);
   }
 };
@@ -324,6 +410,7 @@ struct PxGlobalState : GlobalTableFunctionState {
   shared_ptr<PxReader> reader;
   vector<column_t> column_ids;
   optional_ptr<TableFilterSet> filters;
+  vector<PxCodeFilter> code_filters;
 };
 
 static void PxTableFunction(ClientContext &context, TableFunctionInput &data,
@@ -333,7 +420,7 @@ static void PxTableFunction(ClientContext &context, TableFunctionInput &data,
 
   do {
     output.Reset();
-    global_state.reader->Read(output, global_state.column_ids);
+    global_state.reader->Read(output, global_state.code_filters);
 
     if (output.size() > 0) {
       return;
@@ -352,12 +439,210 @@ PxGlobalInit(ClientContext &context, TableFunctionInitInput &input) {
 
   global_state.column_ids = input.column_ids;
   global_state.filters = input.filters;
+  global_state.code_filters = bind_data.code_filters;
 
   D_ASSERT(bind_data.reader != NULL);
   global_state.reader = bind_data.reader;
 
   return std::move(global_state_result);
 };
+
+//! The set of values that a filter restricts a single column of the scan to
+struct PxFilterValues {
+  //! Index of the column of the scan that is restricted
+  idx_t column_index = 0;
+  //! The values that the column is restricted to
+  vector<Value> values;
+};
+
+//! Resolve a column reference of a filter into the index of the column of the
+//! scan. Returns false when the expression does not reference a column of this
+//! scan at all.
+static bool TryGetScanColumn(LogicalGet &get, Expression &expr,
+                             idx_t &column_index) {
+  if (expr.GetExpressionClass() != ExpressionClass::BOUND_COLUMN_REF) {
+    return false;
+  }
+  auto &ref = expr.Cast<BoundColumnRefExpression>();
+  if (ref.depth != 0 || ref.binding.table_index != get.table_index) {
+    return false;
+  }
+  auto &column_ids = get.GetColumnIds();
+  if (ref.binding.column_index >= column_ids.size()) {
+    return false;
+  }
+  auto &column_id = column_ids[ref.binding.column_index];
+  if (!column_id.HasPrimaryIndex() || column_id.IsVirtualColumn()) {
+    return false;
+  }
+  column_index = column_id.GetPrimaryIndex();
+  return true;
+}
+
+//! Try to extract the values that a filter restricts a column of the scan to.
+//! Only expressions of the form
+//!   <column> = <constant>
+//!   <column> IN (<constant>, ...)
+//!   <column> = <constant> OR <column> = <constant> ...
+//! are understood. Returns false when nothing can be derived from the
+//! expression, in which case the expression does not restrict the scan at all.
+static bool TryExtractFilterValues(LogicalGet &get, Expression &expr,
+                                   PxFilterValues &result) {
+  switch (expr.GetExpressionClass()) {
+  case ExpressionClass::BOUND_COMPARISON: {
+    auto &comparison = expr.Cast<BoundComparisonExpression>();
+    if (comparison.GetExpressionType() != ExpressionType::COMPARE_EQUAL) {
+      return false;
+    }
+    Expression *column = nullptr;
+    Expression *constant = nullptr;
+    if (comparison.left->GetExpressionClass() ==
+        ExpressionClass::BOUND_COLUMN_REF) {
+      column = comparison.left.get();
+      constant = comparison.right.get();
+    } else if (comparison.right->GetExpressionClass() ==
+               ExpressionClass::BOUND_COLUMN_REF) {
+      column = comparison.right.get();
+      constant = comparison.left.get();
+    }
+    if (!column || constant->GetExpressionClass() !=
+                      ExpressionClass::BOUND_CONSTANT) {
+      return false;
+    }
+    if (!TryGetScanColumn(get, *column, result.column_index)) {
+      return false;
+    }
+    result.values.push_back(constant->Cast<BoundConstantExpression>().value);
+    return true;
+  }
+  case ExpressionClass::BOUND_OPERATOR: {
+    auto &in_operator = expr.Cast<BoundOperatorExpression>();
+    if (in_operator.GetExpressionType() != ExpressionType::COMPARE_IN ||
+        in_operator.children.size() < 2) {
+      return false;
+    }
+    if (!TryGetScanColumn(get, *in_operator.children[0], result.column_index)) {
+      return false;
+    }
+    for (idx_t i = 1; i < in_operator.children.size(); i++) {
+      auto &child = *in_operator.children[i];
+      if (child.GetExpressionClass() != ExpressionClass::BOUND_CONSTANT) {
+        return false;
+      }
+      result.values.push_back(child.Cast<BoundConstantExpression>().value);
+    }
+    return true;
+  }
+  case ExpressionClass::BOUND_CONJUNCTION: {
+    auto &conjunction = expr.Cast<BoundConjunctionExpression>();
+    if (conjunction.GetExpressionType() != ExpressionType::CONJUNCTION_OR) {
+      return false;
+    }
+    PxFilterValues left;
+    PxFilterValues right;
+    if (!TryExtractFilterValues(get, *conjunction.children[0], left) ||
+        !TryExtractFilterValues(get, *conjunction.children[1], right) ||
+        left.column_index != right.column_index) {
+      return false;
+    }
+    // An observation matches the disjunction if it matches either side, so the
+    // codes of both sides can match
+    result = std::move(left);
+    result.values.insert(result.values.end(), right.values.begin(),
+                         right.values.end());
+    return true;
+  }
+  default:
+    return false;
+  }
+}
+
+//! Convert a constant of a filter into the string that is compared against the
+//! CODES of a variable
+static bool TryGetConstantString(ClientContext &context, const Value &value,
+                                 string &result) {
+  if (value.IsNull()) {
+    return false;
+  }
+  if (value.type() == LogicalType::VARCHAR) {
+    result = StringValue::Get(value);
+    return true;
+  }
+  Value casted;
+  if (!value.TryCastAs(context, LogicalType::VARCHAR, casted, nullptr)) {
+    return false;
+  }
+  result = StringValue::Get(casted);
+  return true;
+}
+
+//! Add the code indexes of the variable that can match the given values
+static void AddCodeIndexes(ClientContext &context, Variable &variable,
+                           const vector<Value> &values,
+                           vector<idx_t> &code_indexes) {
+  auto &codes = variable.GetCodes();
+  for (auto &value : values) {
+    string code;
+    if (!TryGetConstantString(context, value, code)) {
+      continue;
+    }
+    for (idx_t code_idx = 0; code_idx < codes.size(); code_idx++) {
+      if (codes[code_idx] == code) {
+        code_indexes.push_back(code_idx);
+      }
+    }
+  }
+  std::sort(code_indexes.begin(), code_indexes.end());
+  code_indexes.erase(std::unique(code_indexes.begin(), code_indexes.end()),
+                     code_indexes.end());
+}
+
+//! Add a resolved filter to the filters of the scan. Every filter of the query
+//! is applied to an observation, so when a variable has more than one filter
+//! only the codes that all of them can match are read.
+static void AddCodeFilter(vector<PxCodeFilter> &code_filters,
+                          PxCodeFilter &&code_filter) {
+  for (auto &existing : code_filters) {
+    if (existing.variable_index == code_filter.variable_index) {
+      existing.Intersect(code_filter);
+      return;
+    }
+  }
+  code_filters.push_back(std::move(code_filter));
+}
+
+//! Called by the optimizer to let the scan look at the filters that are pushed
+//! into it. The filters are left in place: DuckDB applies them to the rows that
+//! the scan returns anyway, so all that is gained here is that the scan does
+//! not have to materialize the observations that can not match.
+static void PxPushdownComplexFilter(ClientContext &context, LogicalGet &get,
+                                    FunctionData *bind_data_p,
+                                    vector<unique_ptr<Expression>> &filters) {
+  auto &bind_data = bind_data_p->Cast<PxBindData>();
+  auto &pxfile = bind_data.reader->pxfile;
+  if (pxfile.variable_count == 0) {
+    return;
+  }
+
+  for (auto &filter : filters) {
+    PxFilterValues filter_values;
+    if (!TryExtractFilterValues(get, *filter, filter_values)) {
+      continue;
+    }
+    // The observations of the first variable are stored as one block of
+    // observations per code, which makes it the cheapest variable to skip
+    // over. Any other column, the "value" column included, is left alone.
+    // TODO: resolve and push down filters for the other variables as well
+    if (filter_values.column_index != 0) {
+      continue;
+    }
+    PxCodeFilter code_filter;
+    code_filter.variable_index = 0;
+    AddCodeIndexes(context, pxfile.GetVariable(0), filter_values.values,
+                   code_filter.code_indexes);
+    AddCodeFilter(bind_data.code_filters, std::move(code_filter));
+  }
+}
 
 struct PxMetadataEntry {
   string variable;
@@ -514,6 +799,10 @@ static void LoadInternal(ExtensionLoader &loader) {
   TableFunction px_table_function("read_px", {LogicalType::VARCHAR},
                                   PxTableFunction, PxBindFunction,
                                   PxGlobalInit);
+  // Filter pushdown is not declared as supported: the scan only uses the
+  // filters to skip over observations that can not match, so DuckDB keeps
+  // applying the filters to the rows that the scan returns
+  px_table_function.pushdown_complex_filter = PxPushdownComplexFilter;
   CreateTableFunctionInfo info(px_table_function);
   FunctionDescription desc;
   desc.parameter_names = {"file"};

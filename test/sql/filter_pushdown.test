@@ -1,0 +1,137 @@
+# name: test/sql/filter_pushdown.test
+# description: test filter pushdown of read_px
+# group: [sql]
+
+require px
+
+statement ok
+PRAGMA enable_verification
+
+# A filter on the first variable is resolved into the codes of the variable
+query II
+SELECT vuosi, CAST(value AS INT) AS population
+FROM read_px('test/data/statfin_vaerak_pxt_11rc.px')
+WHERE
+	vuosi = '1900'
+	AND sukupuoli = 'SSS'
+	AND ikä = 'SSS';
+----
+1900	2655900
+
+# Multiple codes can be pushed down, also when some of them are not in the file
+query I
+SELECT COUNT(1) AS N
+FROM read_px('test/data/statfin_vaerak_pxt_11rc.px')
+WHERE vuosi IN ('1900', '2000', '1850');
+----
+114
+
+# A disjunction of equalities on the first variable
+query I
+SELECT COUNT(1) AS N
+FROM read_px('test/data/statfin_vaerak_pxt_11rc.px')
+WHERE vuosi = '1900' OR vuosi = '2000';
+----
+114
+
+# A value that is not a code of the variable at all
+query I
+SELECT COUNT(1) AS N
+FROM read_px('test/data/statfin_vaerak_pxt_11rc.px')
+WHERE vuosi = '1800';
+----
+0
+
+# Two filters on the first variable must both match
+query I
+SELECT COUNT(1) AS N
+FROM read_px('test/data/statfin_vaerak_pxt_11rc.px')
+WHERE vuosi = '1900' AND vuosi = '2000';
+----
+0
+
+# A filter on the first variable combined with a filter on another variable
+query I
+SELECT COUNT(1) AS N
+FROM read_px('test/data/statfin_khi_pxt_11xb.px')
+WHERE Kuukausi = '2025M01' AND Tiedot = 'vuosimuutos' AND Hyödyke = '0';
+----
+1
+
+# A filter on a variable that is not the first one
+query I
+SELECT COUNT(1) AS N
+FROM read_px('test/data/statfin_khi_pxt_11xb.px')
+WHERE Tiedot = 'vuosimuutos' AND Hyödyke = '0';
+----
+130
+
+# The 'value' column has no codes and can never be pushed down
+query I
+SELECT COUNT(1) AS N
+FROM read_px('test/data/statfin_khi_pxt_11xb.px')
+WHERE value = 0.68 AND Kuukausi = '2025M01';
+----
+3
+
+# A pushed down filter returns the same rows as the same filter written in a
+# form that can not be pushed down, also when the result is larger than a
+# single vector
+query IIII
+SELECT
+	(SELECT COUNT(1) FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi = '2025M01'),
+	(SELECT SUM(CAST(value AS BIGINT)) FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi = '2025M01'),
+	(SELECT COUNT(1) FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi >= '2025M01' AND Kuukausi <= '2025M01'),
+	(SELECT SUM(CAST(value AS BIGINT)) FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi >= '2025M01' AND Kuukausi <= '2025M01');
+----
+3675	78996	3675	78996
+
+# The same, but with more than one code pushed down
+query IIII
+SELECT
+	(SELECT COUNT(1) FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi IN ('2025M01', '2025M02')),
+	(SELECT SUM(CAST(value AS BIGINT)) FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi IN ('2025M01', '2025M02')),
+	(SELECT COUNT(1) FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi >= '2025M01' AND Kuukausi <= '2025M02'),
+	(SELECT SUM(CAST(value AS BIGINT)) FROM read_px('test/data/statfin_khi_pxt_11xb.px') WHERE Kuukausi >= '2025M01' AND Kuukausi <= '2025M02');
+----
+7350	158416	7350	158416
+
+# The codes are read in the order in which they are in the file
+query II
+SELECT Kuukausi, value
+FROM read_px('test/data/statfin_khi_pxt_11xb.px')
+WHERE Kuukausi IN ('2025M02', '2025M01')
+	AND Tiedot = 'vuosimuutos'
+	AND Hyödyke = '0'
+ORDER BY Kuukausi;
+----
+2025M01	0.68
+2025M02	0.45
+
+# A constant of another type is cast before it is compared with the codes
+query I
+SELECT COUNT(1) AS N
+FROM read_px('test/data/statfin_vaerak_pxt_11rc.px')
+WHERE vuosi = 1900;
+----
+57
+
+# A filter with a prepared statement is re-bound for every execution
+statement ok
+PREPARE px_pushdown_test AS
+	SELECT COUNT(1) AS N FROM read_px('test/data/statfin_vaerak_pxt_11rc.px') WHERE vuosi = $1;
+
+query I
+EXECUTE px_pushdown_test('1900');
+----
+57
+
+query I
+EXECUTE px_pushdown_test('2000');
+----
+57
+
+query I
+EXECUTE px_pushdown_test('1850');
+----
+0
