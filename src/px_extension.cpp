@@ -40,9 +40,9 @@ struct PxCodeFilter {
   //! in the order of the CODES, so a code that the reader has moved past can
   //! never be seen again and does not have to be checked anymore.
   void RemovePassedCodes(idx_t code_index) {
-    code_indexes.erase(code_indexes.begin(),
-                       std::lower_bound(code_indexes.begin(),
-                                        code_indexes.end(), code_index));
+    code_indexes.erase(
+        code_indexes.begin(),
+        std::lower_bound(code_indexes.begin(), code_indexes.end(), code_index));
   }
 
   //! Returns false when no observation can match the filter anymore
@@ -513,8 +513,8 @@ static bool TryExtractFilterValues(LogicalGet &get, Expression &expr,
       column = comparison.right.get();
       constant = comparison.left.get();
     }
-    if (!column || constant->GetExpressionClass() !=
-                      ExpressionClass::BOUND_CONSTANT) {
+    if (!column ||
+        constant->GetExpressionClass() != ExpressionClass::BOUND_CONSTANT) {
       return false;
     }
     if (!TryGetScanColumn(get, *column, result.column_index)) {
@@ -607,25 +607,42 @@ static vector<idx_t> ResolveCodeIndexes(ClientContext &context,
   return code_indexes;
 }
 
-string PxDescribePushdown(const PxFilterValues &filters) {
+//! The number of filter values that are shown in the plan at most
+static constexpr idx_t PX_DESCRIBED_VALUES = 5;
 
-  string columns = to_string(filters.column_index);
-  string codes;
-
-  for (idx_t i = 0; i < filters.values.size(); i++) {
-    if (i > 0) {
-      codes += ", ";
-    }
-    if (filters.values[i].type() == LogicalType::VARCHAR) {
-      codes += StringValue::Get(filters.values[i]);
-    }
+//! Describe a filter that has been pushed down into the scan, in the same way
+//! that DuckDB describes the filters that it pushes down itself
+static string PxDescribePushdown(LogicalGet &get,
+                                 const PxFilterValues &filters) {
+  string column = to_string(filters.column_index);
+  if (filters.column_index < get.names.size()) {
+    column = get.names[filters.column_index];
+  }
+  if (filters.values.empty()) {
+    return column;
   }
 
-  return StringUtil::Format("filtered values of column(s) %s: %s",
-                            columns.c_str(), codes.c_str());
+  // A single value is shown as an equality, several values as an IN list
+  string result = column + " = ";
+  if (filters.values.size() > 1) {
+    result = column + " IN (";
+  }
+  for (idx_t i = 0;
+       i < MinValue<idx_t>(filters.values.size(), PX_DESCRIBED_VALUES); i++) {
+    if (i > 0) {
+      result += ", ";
+    }
+    result += filters.values[i].ToSQLString();
+  }
+  if (filters.values.size() > PX_DESCRIBED_VALUES) {
+    result += StringUtil::Format(", ... (%llu values)",
+                                 (unsigned long long)filters.values.size());
+  }
+  if (filters.values.size() > 1) {
+    result += ")";
+  }
+  return result;
 }
-
-
 
 //! Called by the optimizer to let the scan look at the filters that are pushed
 //! into it. The filters are left in place: DuckDB applies them to the rows that
@@ -640,6 +657,9 @@ static void PxPushdownComplexFilter(ClientContext &context, LogicalGet &get,
     return;
   }
 
+  // The scan can have more than one filter pushed into it, they are all
+  // described in the plan
+  string described;
   for (auto &filter : filters) {
     PxFilterValues filter_values;
     if (!TryExtractFilterValues(get, *filter, filter_values)) {
@@ -665,10 +685,17 @@ static void PxPushdownComplexFilter(ClientContext &context, LogicalGet &get,
       bind_data.code_filter = std::move(code_filter);
     }
 
-    get.extra_info.file_filters =
-        PxDescribePushdown(filter_values);
+    if (!described.empty()) {
+      described += ", ";
+    }
+    described += PxDescribePushdown(get, filter_values);
   }
 
+  // The optimizer can run more than once over the same scan, in which case the
+  // filters are pushed down again and the description is replaced
+  if (!described.empty()) {
+    get.extra_info.file_filters = std::move(described);
+  }
 }
 
 struct PxMetadataEntry {

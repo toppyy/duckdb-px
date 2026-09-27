@@ -64,7 +64,4 @@ void Variable::ResetSequentialCounter() {
   count_in_current_code = 0;
 }
 
-
-size_t Variable::GetCurrentCodeIndex() {
-  return current_code_index;
-}
+size_t Variable::GetCurrentCodeIndex() { return current_code_index; }

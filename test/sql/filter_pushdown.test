@@ -120,7 +120,8 @@ ORDER BY Kuukausi;
 2025M01	0.68
 2025M02	0.45
 
-# A constant of another type is cast before it is compared with the codes
+# The binder casts the column instead of the constant, so nothing can be
+# pushed down, but the filter is still applied by DuckDB
 query I
 SELECT COUNT(1) AS N
 FROM read_px('test/data/statfin_vaerak_pxt_11rc.px')
