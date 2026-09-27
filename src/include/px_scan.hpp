@@ -46,6 +46,9 @@ struct PxGlobalState : GlobalTableFunctionState {
   PxCodeFilter code_filter;
 };
 
+//! Neither table function takes a named parameter, reject every one of them
+void CheckPxNamedParameters(TableFunctionBindInput &input);
+
 unique_ptr<FunctionData> PxBindFunction(ClientContext &context,
                                         TableFunctionBindInput &input,
                                         vector<LogicalType> &return_types,

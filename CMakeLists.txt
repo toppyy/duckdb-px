@@ -16,6 +16,7 @@ set(EXTENSION_SOURCES
     src/px_filter_pushdown.cpp
     src/px_metadata.cpp
     src/px_file.cpp
+    src/px_file_source.cpp
     src/px_parser.cpp
     src/variable.cpp
     src/utils.cpp)

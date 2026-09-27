@@ -2,13 +2,8 @@
 
 namespace duckdb {
 
-unique_ptr<FunctionData> PxBindFunction(ClientContext &context,
-                                        TableFunctionBindInput &input,
-                                        vector<LogicalType> &return_types,
-                                        vector<string> &names) {
-  auto &filename = input.inputs[0];
-  auto result = make_uniq<PxBindData>();
-
+//! Neither table function takes a named parameter, reject every one of them
+void CheckPxNamedParameters(TableFunctionBindInput &input) {
   for (auto &kv : input.named_parameters) {
     if (kv.second.IsNull()) {
       throw BinderException("Cannot use NULL as function argument");
@@ -16,6 +11,16 @@ unique_ptr<FunctionData> PxBindFunction(ClientContext &context,
     auto loption = StringUtil::Lower(kv.first);
     throw InternalException("Unrecognized option %s", loption.c_str());
   }
+}
+
+unique_ptr<FunctionData> PxBindFunction(ClientContext &context,
+                                        TableFunctionBindInput &input,
+                                        vector<LogicalType> &return_types,
+                                        vector<string> &names) {
+  auto &filename = input.inputs[0];
+  auto result = make_uniq<PxBindData>();
+
+  CheckPxNamedParameters(input);
 
   result->reader = make_shared_ptr<PxReader>(context, filename.ToString());
 

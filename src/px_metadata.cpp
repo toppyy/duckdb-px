@@ -1,6 +1,8 @@
 #include "px_metadata.hpp"
 
 #include "px_file.hpp"
+#include "px_file_source.hpp"
+#include "px_scan.hpp"
 
 namespace duckdb {
 
@@ -12,47 +14,12 @@ PxMetadataBindFunction(ClientContext &context, TableFunctionBindInput &input,
   if (filename.IsNull()) {
     throw BinderException("Cannot use NULL as file name for read_px_metadata");
   }
-  for (auto &kv : input.named_parameters) {
-    if (kv.second.IsNull()) {
-      throw BinderException("Cannot use NULL as function argument");
-    }
-    auto loption = StringUtil::Lower(kv.first);
-    throw InternalException("Unrecognized option %s", loption.c_str());
-  }
+  CheckPxNamedParameters(input);
 
   string fname = filename.ToString();
-  auto &fs = FileSystem::GetFileSystem(context);
-  if (!fs.FileExists(fname)) {
-    throw InvalidInputException("PX-file %s not found", fname);
-  }
-  auto file = fs.OpenFile(fname, FileOpenFlags::FILE_FLAGS_READ);
-  auto fsize = file->GetFileSize();
-  if (fsize == 0) {
-    throw BinderException("PX-file %s is empty", fname);
-  }
-  AllocatedData allocated_data;
-  try {
-    allocated_data = Allocator::Get(context).Allocate(fsize);
-  } catch (const Exception &ex) {
-    throw BinderException(
-        "Failed to allocate memory for PX-file %s (%llu bytes): %s", fname,
-        (unsigned long long)fsize, ex.what());
-  }
-  idx_t n_read = 0;
-  try {
-    n_read = file->Read(allocated_data.get(), allocated_data.GetSize());
-  } catch (const Exception &ex) {
-    throw InvalidInputException("Failed to read PX-file %s: %s", fname,
-                                ex.what());
-  }
-  if (n_read != (idx_t)fsize) {
-    throw InvalidInputException(
-        "Failed to read PX-file %s (read %llu of %llu bytes)", fname,
-        (unsigned long long)n_read, (unsigned long long)fsize);
-  }
-  const char *data = const_char_ptr_cast(allocated_data.get());
+  auto source = ReadPxFile(context, fname);
   PxFile pxfile;
-  pxfile.ParseMetadata(data, 0, fsize);
+  pxfile.ParseMetadata(source.data, 0, source.size);
 
   auto result = make_uniq<PxMetadataBindData>();
   result->file = fname;

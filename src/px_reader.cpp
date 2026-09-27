@@ -1,5 +1,7 @@
 #include "px_reader.hpp"
 
+#include "px_file_source.hpp"
+
 namespace duckdb {
 
 StringView PxReader::GetNextValue() {
@@ -146,104 +148,85 @@ void PxReader::Read(DataChunk &output, const PxCodeFilter &code_filter) {
 PxReader::PxReader(ClientContext &context, const string filename)
     : pxfile(), data_offset(0), data_size(0), data(nullptr), read_vecs(),
       return_types(), names(), observations_read(0), value_type("float") {
-  auto &fs = FileSystem::GetFileSystem(context);
-  if (!fs.FileExists(filename)) {
-    throw InvalidInputException("PX-file %s not found", filename);
-  }
-
-  auto file = fs.OpenFile(filename, FileOpenFlags::FILE_FLAGS_READ);
-  auto fsize = file->GetFileSize();
-  if (fsize == 0) {
-    throw BinderException("PX-file %s is empty", filename);
-  }
-  try {
-    allocated_data = Allocator::Get(context).Allocate(fsize);
-  } catch (const Exception &ex) {
-    throw BinderException(
-        "Failed to allocate memory for PX-file %s (%llu bytes): %s", filename,
-        (unsigned long long)fsize, ex.what());
-  }
-  idx_t n_read = 0;
-  try {
-    n_read = file->Read(allocated_data.get(), allocated_data.GetSize());
-  } catch (const Exception &ex) {
-    throw InvalidInputException("Failed to read PX-file %s: %s", filename,
-                                ex.what());
-  }
-  if (n_read != (idx_t)fsize) {
-    throw InvalidInputException(
-        "Failed to read PX-file %s (read %llu of %llu bytes)", filename,
-        (unsigned long long)n_read, (unsigned long long)fsize);
-  }
+  auto source = ReadPxFile(context, filename);
+  allocated_data = std::move(source.allocated_data);
+  data = const_char_ptr_cast(allocated_data.get());
+  data_size = source.size;
 
   /* Parse column types */
-  data_size = fsize;
-  data = const_char_ptr_cast(allocated_data.get());
-
   data_offset = pxfile.ParseMetadata(data, data_offset, data_size);
 
-  int decimals = pxfile.GetDecimals();
-
   // Get variable metadata from parsed px-file
-
   for (size_t i = 0; i < pxfile.variable_count; i++) {
-
-    Variable &var = pxfile.GetVariable(i);
-
-    if (var.ValueCount() != 0 && var.CodeCount() != var.ValueCount()) {
-      throw BinderException(
-          "Number of VALUES and CODES do not match for variable '%s'!",
-          var.GetName().c_str());
-    }
-    if (var.CodeCount() == 0) {
-      throw BinderException("Variable '%s' has no CODES",
-                            var.GetName().c_str());
-    }
-    if (var.CodeCount() > STANDARD_VECTOR_SIZE) {
-      throw BinderException("Variable '%s' has too many codes %zu > %d",
-                            var.GetName().c_str(), var.CodeCount(),
-                            STANDARD_VECTOR_SIZE);
-    }
-
-    read_vecs.push_back(make_uniq<Vector>(LogicalType::VARCHAR));
-
-    // Build the dictionary
-    size_t idx = read_vecs.size() - 1;
-    size_t out_idx = 0;
-    for (auto &code : var.GetCodes()) {
-      FlatVector::GetData<string_t>(*read_vecs[idx])[out_idx] =
-          StringVector::AddString(*read_vecs[idx], code);
-      out_idx++;
-    }
-
-    // Turn it into a dictionary vectory
-    SelectionVector sel_vect;
-    sel_vect.Initialize(STANDARD_VECTOR_SIZE);
-    read_vecs[idx]->Dictionary(var.CodeCount(), sel_vect, STANDARD_VECTOR_SIZE);
-
-    D_ASSERT(read_vecs[idx]->GetVectorType() == VectorType::DICTIONARY_VECTOR);
-
-    return_types.push_back(LogicalType::VARCHAR);
-    names.push_back(var.GetName());
+    AddVariableColumn(pxfile.GetVariable(i));
   }
 
-  if (pxfile.variable_count > 0) {
-    size_t repetition_factor = 1;
-    for (size_t i = pxfile.variable_count; i-- > 0;) {
-      auto &var = pxfile.GetVariable(i);
-      var.SetRepetitionFactor(repetition_factor);
-      if (var.CodeCount() == 0) {
-        throw BinderException("Variable '%s' has zero codes",
-                              var.GetName().c_str());
-      }
-      if (repetition_factor > SIZE_MAX / var.CodeCount()) {
-        throw BinderException("Too many observations, product overflow");
-      }
-      repetition_factor *= var.CodeCount();
-    }
-  }
+  SetRepetitionFactors();
 
   // Variable(s) for values
+  AddValueColumn(pxfile.GetDecimals());
+}
+
+void PxReader::AddVariableColumn(Variable &var) {
+  if (var.ValueCount() != 0 && var.CodeCount() != var.ValueCount()) {
+    throw BinderException(
+        "Number of VALUES and CODES do not match for variable '%s'!",
+        var.GetName().c_str());
+  }
+  if (var.CodeCount() == 0) {
+    throw BinderException("Variable '%s' has no CODES", var.GetName().c_str());
+  }
+  if (var.CodeCount() > STANDARD_VECTOR_SIZE) {
+    throw BinderException("Variable '%s' has too many codes %zu > %d",
+                          var.GetName().c_str(), var.CodeCount(),
+                          STANDARD_VECTOR_SIZE);
+  }
+
+  read_vecs.push_back(make_uniq<Vector>(LogicalType::VARCHAR));
+
+  // Build the dictionary
+  size_t idx = read_vecs.size() - 1;
+  size_t out_idx = 0;
+  for (auto &code : var.GetCodes()) {
+    FlatVector::GetData<string_t>(*read_vecs[idx])[out_idx] =
+        StringVector::AddString(*read_vecs[idx], code);
+    out_idx++;
+  }
+
+  // Turn it into a dictionary vectory
+  SelectionVector sel_vect;
+  sel_vect.Initialize(STANDARD_VECTOR_SIZE);
+  read_vecs[idx]->Dictionary(var.CodeCount(), sel_vect, STANDARD_VECTOR_SIZE);
+
+  D_ASSERT(read_vecs[idx]->GetVectorType() == VectorType::DICTIONARY_VECTOR);
+
+  return_types.push_back(LogicalType::VARCHAR);
+  names.push_back(var.GetName());
+}
+
+//! Every variable is repeated once for every combination of the codes of the
+//! variables that follow it, so the last variable changes fastest. The factor
+//! of a variable is the product of the code counts of the variables behind it.
+void PxReader::SetRepetitionFactors() {
+  if (pxfile.variable_count == 0) {
+    return;
+  }
+  size_t repetition_factor = 1;
+  for (size_t i = pxfile.variable_count; i-- > 0;) {
+    auto &var = pxfile.GetVariable(i);
+    var.SetRepetitionFactor(repetition_factor);
+    if (var.CodeCount() == 0) {
+      throw BinderException("Variable '%s' has zero codes",
+                            var.GetName().c_str());
+    }
+    if (repetition_factor > SIZE_MAX / var.CodeCount()) {
+      throw BinderException("Too many observations, product overflow");
+    }
+    repetition_factor *= var.CodeCount();
+  }
+}
+
+void PxReader::AddValueColumn(int decimals) {
   names.push_back("value");
   if (decimals > 0) {
     value_type = "float";

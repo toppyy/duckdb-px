@@ -42,6 +42,17 @@ struct PxReader {
   void Read(DataChunk &output, const PxCodeFilter &code_filter);
 
   PxReader(ClientContext &context, const string filename);
+
+  //! Add the column that holds the CODE of a variable: a dictionary of the
+  //! CODES of the variable
+  void AddVariableColumn(Variable &var);
+
+  //! Tell every variable how often its CODES repeat, see below
+  void SetRepetitionFactors();
+
+  //! Add the column that holds the observations of the DATA keyword. Its type
+  //! is a guess based on the DECIMALS keyword
+  void AddValueColumn(int decimals);
 };
 
 } // namespace duckdb
