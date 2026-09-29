@@ -1,0 +1,6 @@
+CHARSET="UTF-8";
+STUB="var1";
+CODES("var1")="Työmarkkinat","työ";
+DECIMALS=0;
+DATA=
+1 2;

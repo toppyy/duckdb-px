@@ -1,6 +1,7 @@
 #include "px_parser.hpp"
 
 #include "px_file.hpp"
+#include "utils.hpp"
 
 #include <cstring>
 #include <stdexcept>
@@ -94,6 +95,10 @@ size_t ParseValues(const char *data, size_t offset, size_t data_size,
   if (!var_found)
     throw BinderException(
         "Values specified for a variable not found in STUB/HEADING");
+  if (pxfile.GetVariable(var_idx).HasValues()) {
+    throw BinderException("Duplicate VALUES for variable '%s'",
+                          varname.c_str());
+  }
   idx += ParseList(data, offset + idx, data_size,
                    pxfile.GetVariableValues(var_idx));
   return idx;
@@ -115,6 +120,9 @@ size_t ParseCodes(const char *data, size_t offset, size_t data_size,
   if (!var_found)
     throw BinderException(
         "Codes specified for a variable not found in STUB/HEADING");
+  if (pxfile.GetVariable(var_idx).HasCodes()) {
+    throw BinderException("Duplicate CODES for variable '%s'", varname.c_str());
+  }
   idx += ParseList(data, offset + idx, data_size,
                    pxfile.GetVariableCodes(var_idx));
   size_t cc = pxfile.GetVariable(var_idx).CodeCount();
@@ -178,36 +186,31 @@ PxKeyword ParseKeyword(const char *data, size_t remaining) {
 }
 
 string ISO88591toUTF8(const string &original_string) {
+  const auto *bytes =
+      reinterpret_cast<const unsigned char *>(original_string.data());
+  size_t size = original_string.size();
+
+  // A PX file is officially ISO-8859-1, but plenty of the files in the wild are
+  // already UTF-8. Whatever the file claims to be, DuckDB needs valid UTF-8
+  // out of here: handing it raw high bytes makes it abort the query with an
+  // internal error deep inside utf8proc instead of reading the file.
+  // Input that already is valid UTF-8 is therefore passed through untouched.
+  if (IsValidUTF8(bytes, size)) {
+    return original_string;
+  }
+
+  // Everything else is read as ISO-8859-1, where every one of the 128 high
+  // bytes is a character of its own and maps to U+0080 - U+00FF.
   string rtrn;
-  for (size_t i = 0; i < original_string.size(); i++) {
-    switch (original_string[i]) {
-    case static_cast<char>(0xe4):
-      rtrn += static_cast<char>(0xC3);
-      rtrn += static_cast<char>(0xA4);
-      break;
-    case static_cast<char>(0xf6):
-      rtrn += static_cast<char>(0xC3);
-      rtrn += static_cast<char>(0xB6);
-      break;
-    case static_cast<char>(0xe5):
-      rtrn += static_cast<char>(0xC3);
-      rtrn += static_cast<char>(0xA5);
-      break;
-    case static_cast<char>(0xC4):
-      rtrn += static_cast<char>(0xC3);
-      rtrn += static_cast<char>(0x84);
-      break;
-    case static_cast<char>(0xD6):
-      rtrn += static_cast<char>(0xC3);
-      rtrn += static_cast<char>(0x96);
-      break;
-    case static_cast<char>(0xC5):
-      rtrn += static_cast<char>(0xC3);
-      rtrn += static_cast<char>(0x85);
-      break;
-    default:
-      rtrn += original_string[i];
+  rtrn.reserve(size);
+  for (size_t i = 0; i < size; i++) {
+    auto byte = bytes[i];
+    if (byte < 0x80) {
+      rtrn.push_back(static_cast<char>(byte));
+      continue;
     }
+    rtrn.push_back(static_cast<char>(0xC0 | (byte >> 6)));
+    rtrn.push_back(static_cast<char>(0x80 | (byte & 0x3F)));
   }
   return rtrn;
 }

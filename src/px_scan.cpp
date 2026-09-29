@@ -22,6 +22,9 @@ unique_ptr<FunctionData> PxBindFunction(ClientContext &context,
 
   CheckPxNamedParameters(input);
 
+  if (filename.IsNull()) {
+    throw BinderException("Cannot use NULL as file name for read_px");
+  }
   result->reader = make_shared_ptr<PxReader>(context, filename.ToString());
 
   return_types = result->reader->return_types;

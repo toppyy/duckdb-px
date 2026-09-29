@@ -26,6 +26,11 @@ public:
 bool IsWhiteSpace(char c);
 bool IsNumeric(StringView val);
 
+//! Whether the bytes are well-formed UTF-8, i.e. whether DuckDB can safely put
+//! them in a VARCHAR. Only rejects invalid byte sequences, an empty string is
+//! valid.
+bool IsValidUTF8(const unsigned char *bytes, size_t size);
+
 size_t SkipWhiteSpace(const char *data, size_t offset, size_t size);
 
 // Manual parsing functions for C++11 StringView compatibility

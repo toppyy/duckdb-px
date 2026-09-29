@@ -17,14 +17,16 @@ struct PxBindData : FunctionData {
   //! Filter on the first variable that the optimizer pushed down into the scan
   PxCodeFilter code_filter;
 
+  //! Two binds of the same file are equal when they read the same file, they
+  //! then share the reader of the first one
   bool Equals(const FunctionData &other_p) const override {
-    D_ASSERT(false);
     auto &other = other_p.Cast<PxBindData>();
-    return reader == other.reader && file == other.file;
+    return file == other.file;
   }
 
+  //! Every copy of the bind data shares the reader of the original, so that a
+  //! file that is read more than once is not parsed more than once
   unique_ptr<FunctionData> Copy() const override {
-    D_ASSERT(false);
     auto copy = make_uniq<PxBindData>();
     copy->file = file;
     copy->names = names;

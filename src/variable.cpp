@@ -7,9 +7,13 @@ Variable::Variable(std::string p_name)
       current_code_index(0), count_in_current_code(0){};
 
 const std::string &Variable::GetName() { return name; };
-
 size_t Variable::CodeCount() { return codes.size(); };
+
 size_t Variable::ValueCount() { return values.size(); };
+
+bool Variable::HasCodes() { return !codes.empty(); };
+
+bool Variable::HasValues() { return !values.empty(); };
 
 void Variable::SetRepetitionFactor(size_t p_rep_factor) {
   repetition_factor = p_rep_factor;

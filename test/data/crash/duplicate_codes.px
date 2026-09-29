@@ -1,0 +1,6 @@
+CHARSET="ANSI";
+STUB="var1";
+CODES("var1")="a","b";
+CODES("var1")="c";
+DATA=
+1 2 3 4;

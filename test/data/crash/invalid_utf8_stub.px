@@ -1,0 +1,6 @@
+CHARSET="ANSI";
+STUB="v€r1";
+CODES("v€r1")="a","b";
+DECIMALS=0;
+DATA=
+1 2;

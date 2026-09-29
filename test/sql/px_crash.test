@@ -99,3 +99,73 @@ query I
 SELECT COUNT(*) FROM read_px('test/data/statfin_vaerak_pxt_11rc.px') WHERE vuosi='1900'
 ----
 57
+
+# a CODES keyword for a variable that already has one used to be appended to
+# that variable, which left the file with more observations than it has
+# combinations of codes
+statement error
+SELECT * FROM read_px('test/data/crash/duplicate_codes.px')
+----
+Duplicate CODES
+
+statement error
+SELECT * FROM read_px('test/data/crash/duplicate_values.px')
+----
+Duplicate VALUES
+
+# ISO-8859-1 characters of a codes list have to be converted, handing the raw
+# bytes to DuckDB aborted the query with an internal error
+query III
+SELECT var1, length(var1), value FROM read_px('test/data/crash/latin1_codes.px') ORDER BY value
+----
+café	4	1
+naïve	5	2
+Über	4	3
+
+query II
+SELECT variable, code FROM read_px_metadata('test/data/crash/latin1_codes.px') ORDER BY code
+----
+var1	café
+var1	naïve
+var1	Über
+
+# a file that is UTF-8 already is left alone
+query II
+SELECT var1, value FROM read_px('test/data/crash/utf8_codes.px') ORDER BY value
+----
+Työmarkkinat	1
+työ	2
+
+# bytes that are not UTF-8 at all must not reach DuckDB as they are, it aborts
+# the query with an internal error when it meets them in a VARCHAR
+query III
+SELECT length(var1), hex(var1), value FROM read_px('test/data/crash/invalid_utf8_codes.px') ORDER BY value
+----
+3	C280C281C3BE	1
+5	706C61696E	2
+
+query II
+SELECT hex(variable), hex(code) FROM read_px_metadata('test/data/crash/invalid_utf8_stub.px')
+----
+76C2807231	61
+76C2807231	62
+
+# an exponent of a negative number used to be ignored, 1e-40 was read as 1
+query R
+SELECT value FROM read_px('test/data/crash/negative_exponent.px')
+----
+10000000000.0
+1.5e-05
+2e+20
+3e-20
+
+# NULL is not a file name
+statement error
+SELECT * FROM read_px(NULL)
+----
+Binder Error
+
+statement error
+SELECT * FROM read_px_metadata(NULL)
+----
+Binder Error

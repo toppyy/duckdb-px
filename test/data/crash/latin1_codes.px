@@ -1,0 +1,6 @@
+CHARSET="ANSI";
+STUB="var1";
+CODES("var1")="café","naïve","Über";
+DECIMALS=0;
+DATA=
+1 2 3;

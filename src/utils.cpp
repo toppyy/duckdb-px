@@ -45,7 +45,76 @@ size_t SkipWhiteSpace(const char *data, size_t offset, size_t size) {
   return offset;
 }
 
+bool IsValidUTF8(const unsigned char *bytes, size_t size) {
+  size_t i = 0;
+  while (i < size) {
+    auto lead = bytes[i];
+    if (lead < 0x80) {
+      i++;
+      continue;
+    }
+
+    // Number of bytes of the sequence that follows the leading byte, and the
+    // smallest code point that may be encoded with that many
+    size_t follow_bytes;
+    uint32_t min_code_point;
+    if ((lead & 0xE0) == 0xC0) {
+      follow_bytes = 1;
+      min_code_point = 0x80;
+    } else if ((lead & 0xF0) == 0xE0) {
+      follow_bytes = 2;
+      min_code_point = 0x800;
+    } else if ((lead & 0xF8) == 0xF0) {
+      follow_bytes = 3;
+      min_code_point = 0x10000;
+    } else {
+      // A continuation byte in leading position, or a byte that UTF-8 does not
+      // use at all
+      return false;
+    }
+
+    if (i + follow_bytes >= size) {
+      // The sequence is cut off by the end of the string
+      return false;
+    }
+
+    // Assemble the code point of the sequence, rejecting the continuation bytes
+    // that are not continuation bytes
+    uint32_t code_point = lead & (0x7F >> follow_bytes);
+    for (size_t j = 1; j <= follow_bytes; j++) {
+      auto follow = bytes[i + j];
+      if ((follow & 0xC0) != 0x80) {
+        return false;
+      }
+      code_point = (code_point << 6) | (follow & 0x3F);
+    }
+
+    if (code_point < min_code_point) {
+      // Overlong encoding
+      return false;
+    }
+    if (code_point > 0x10FFFF) {
+      // Above the last code point of Unicode
+      return false;
+    }
+    if (code_point >= 0xD800 && code_point <= 0xDFFF) {
+      // UTF-16 surrogate halves do not belong in UTF-8
+      return false;
+    }
+
+    i += follow_bytes + 1;
+  }
+  return true;
+}
+// ---------- whitespace lookup table ----------
+static const bool WS[128] = {
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+};
+
 // Manual float parsing for C++11 StringView compatibility
+
 float ParseFloat(StringView sv) {
   if (sv.empty())
     return 0.0f;
@@ -55,7 +124,7 @@ float ParseFloat(StringView sv) {
   const char *p = start;
 
   // Skip leading whitespace
-  while (p < end && IsWhiteSpace(*p))
+  while (p < end && WS[(unsigned char)*p])
     p++;
 
   if (p >= end)
@@ -121,7 +190,7 @@ float ParseFloat(StringView sv) {
       exponent = -38;
     }
     float multiplier = 1.0f;
-    for (int i = 0; i < exponent; i++) {
+    for (int i = 0; i < (exponent < 0 ? -exponent : exponent); i++) {
       multiplier *= 10.0f;
     }
 
@@ -136,6 +205,33 @@ float ParseFloat(StringView sv) {
 }
 
 // Manual int32 parsing for C++11 StringView compatibility
+int32_t ParseInt32(StringView sv) {
+  const char *p = sv.data();
+  const char *end = p + sv.size();
+  while (p < end && WS[(unsigned char)*p])
+    p++;
+  if (p >= end)
+    return 0;
+  const bool negative = (*p == '-');
+  p += ((*p == '-') | (*p == '+'));
+  const char *digits = p;
+  uint64_t result = 0;
+  while (p < end) {
+    unsigned d = static_cast<unsigned>(static_cast<unsigned char>(*p) - '0');
+    if (d > 9)
+      break;
+    result = result * 10 + d;
+    p++;
+  }
+  if (p == digits)
+    return 0;
+  const uint64_t limit = negative ? 2147483648ULL : 2147483647ULL;
+  if (p - digits > 19 || result > limit)
+    return negative ? INT32_MIN : INT32_MAX;
+  return negative ? -(int32_t)result : (int32_t)result;
+}
+
+/*
 int32_t ParseInt32(StringView sv) {
   if (sv.empty())
     return 0;
@@ -181,5 +277,6 @@ int32_t ParseInt32(StringView sv) {
   int32_t out = (int32_t)result;
   return negative ? -out : out;
 }
+*/
 
 } // namespace duckdb

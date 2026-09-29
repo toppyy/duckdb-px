@@ -20,6 +20,12 @@ public:
   size_t CodeCount();
   size_t ValueCount();
 
+  //! A variable may only be described once. Every CODES and VALUES keyword of
+  //! the file would add to the same variable otherwise, which leaves the
+  //! number of observations of the file inconsistent with its variables.
+  bool HasCodes();
+  bool HasValues();
+
   void SetRepetitionFactor(size_t p_rep_factor);
 
   //! Advance to the next code of the variable and return its index. The codes

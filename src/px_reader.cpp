@@ -194,9 +194,14 @@ void PxReader::AddVariableColumn(Variable &var) {
     out_idx++;
   }
 
-  // Turn it into a dictionary vectory
+  // Turn it into a dictionary vectory. The selection vector is zeroed so that
+  // every entry points at a code that was just written, even the entries that
+  // the reader has not filled in yet.
   SelectionVector sel_vect;
   sel_vect.Initialize(STANDARD_VECTOR_SIZE);
+  for (idx_t i = 0; i < STANDARD_VECTOR_SIZE; i++) {
+    sel_vect.set_index(i, 0);
+  }
   read_vecs[idx]->Dictionary(var.CodeCount(), sel_vect, STANDARD_VECTOR_SIZE);
 
   D_ASSERT(read_vecs[idx]->GetVectorType() == VectorType::DICTIONARY_VECTOR);
