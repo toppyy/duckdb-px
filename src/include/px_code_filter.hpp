@@ -25,6 +25,11 @@ struct PxCodeFilter {
   //! Sorted, unique list of the code indexes of the first variable that can
   //! match the filter. Can be empty, then no observation matches the filter.
   vector<idx_t> code_indexes;
+  // ! Holds the index of the first observatio/value of each block. We can 
+  // ! use this to skip observations not matching the pushed down filter.
+  vector<size_t> observation_offsets;
+  // ! Size of the block. Product of code count of all other variables (excl. value)
+  size_t block_size;
 
   bool Matches(idx_t code_index) const {
     return std::binary_search(code_indexes.begin(), code_indexes.end(),
@@ -38,6 +43,11 @@ struct PxCodeFilter {
     code_indexes.erase(
         code_indexes.begin(),
         std::lower_bound(code_indexes.begin(), code_indexes.end(), code_index));
+
+    observation_offsets.erase(
+        observation_offsets.begin(),
+        std::lower_bound(observation_offsets.begin(), observation_offsets.end(), code_index));
+
   }
 
   //! Returns false when no observation can match the filter anymore

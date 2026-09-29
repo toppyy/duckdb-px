@@ -42,6 +42,9 @@ struct PxReader {
   //! Move the reader to the next observation without materializing it
   void SkipObservation();
 
+  //! Move the reader n observations without materializing them
+  void SkipObservations(size_t n);
+
   void Read(DataChunk &output, const PxCodeFilter &code_filter);
 
   PxReader(ClientContext &context, const string filename);

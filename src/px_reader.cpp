@@ -60,6 +60,17 @@ void PxReader::SkipObservation() {
   observations_read++;
 }
 
+void PxReader::SkipObservations(size_t n) {
+  // Skips n observations by scanning n tokens
+  // and advancing code indexes by math instead
+  // of calling NextCodeIndexSequential() n times
+  for (auto i = 0; i < n; i++) GetNextValue();
+
+  // TODO advance NextCodeIndexSequential n times
+  // in a single pass
+
+}
+
 void PxReader::Read(DataChunk &output, const PxCodeFilter &code_filter) {
   std::lock_guard<std::mutex> guard(read_lock);
   if (observations_read >= pxfile.observations) {
@@ -86,29 +97,40 @@ void PxReader::Read(DataChunk &output, const PxCodeFilter &code_filter) {
   // which is always present
   column_t variables = pxfile.variable_count;
   idx_t out_idx = 0;
+  idx_t next_block_offset = remaining.active ? remaining.observation_offsets[0] : 0;
+  size_t skipped_observations = 0;
 
   while (observations_read < pxfile.observations) {
 
     if (remaining.active) {
+
+      if (observations_read < next_block_offset) {
+        SkipObservations(next_block_offset - observations_read);
+        continue;
+      }
+
       auto code_index = pxfile.GetVariable(0).GetCurrentCodeIndex();
+
       if (code_index != current_code) {
         // The reader has moved on to the next code of the first variable
         remaining.RemovePassedCodes(code_index);
         current_code = code_index;
+        // TODO update next_block_offset?
       }
+
       if (!remaining.CanMatch()) {
         // Every code that could have matched the filter has been read, the
         // rest of the file can not contain a match anymore
         observations_read = pxfile.observations;
         break;
       }
-      if (!remaining.Matches(code_index)) {
-        // The observations of the first variable are stored as one block of
-        // observations per code, so the whole block is skipped instead of
-        // being materialized and thrown away by DuckDB afterwards.
-        SkipObservation();
-        continue;
-      }
+      // if (!remaining.Matches(code_index)) {
+      //   // The observations of the first variable are stored as one block of
+      //   // observations per code, so the whole block is skipped instead of
+      //   // being materialized and thrown away by DuckDB afterwards.
+      //   SkipObservation();
+      //   continue;
+      // }
     }
 
     for (size_t col_idx = 0; col_idx <= variables; col_idx++) {
