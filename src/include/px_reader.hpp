@@ -33,14 +33,15 @@ struct PxReader {
 
   StringView GetNextValue();
 
+  //! Move the reader past the value of the next observation without parsing
+  //! it. Returns false when the DATA section holds no more values
+  bool SkipValue();
+
   void AssignValue(size_t variable, size_t out_idx, StringView val);
 
   void AssignFloatValue(size_t variable, size_t out_idx, StringView val);
 
   void AssignIntegerValue(size_t variable, size_t out_idx, StringView val);
-
-  //! Move the reader to the next observation without materializing it
-  void SkipObservation();
 
   //! Move the reader n observations without materializing them
   void SkipObservations(size_t n);

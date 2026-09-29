@@ -217,24 +217,15 @@ void PxPushdownComplexFilter(ClientContext &context, LogicalGet &get,
       continue;
     }
 
-    // Calculate the block size (same for all codes)
-    size_t block_size = 1;
-    for (auto i = 1; i < pxfile.variable_count; i++)
-      block_size *= pxfile.GetVariable(i).CodeCount(); 
-
-
     PxCodeFilter code_filter;
     code_filter.active = true;
-    code_filter.block_size = block_size;
+    // The observations of the file are the cartesian product of the codes of
+    // its variables, so one code of the first variable is repeated for as many
+    // observations as there are combinations of the codes behind it. That is
+    // exactly the repetition factor that the reader gave the variable.
+    code_filter.block_size = pxfile.GetVariable(0).GetRepetitionFactor();
     code_filter.code_indexes = ResolveCodeIndexes(
         context, pxfile.GetVariable(0), filter_values.values);
-
-    // Calculate the offset (in observations) for each block
-    for (auto i = 0; i < code_filter.code_indexes.size(); i++) {
-      code_filter.observation_offsets.push_back(block_size * code_filter.code_indexes[i]);
-      // printf("%ld starts at offset %ld when block_size is %ld\n",code_filter.code_indexes[i], code_filter.observation_offsets[i], block_size);
-    }
-
 
     if (bind_data.code_filter.active) {
       // Every filter of the query is applied to an observation, so when the

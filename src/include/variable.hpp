@@ -28,10 +28,22 @@ public:
 
   void SetRepetitionFactor(size_t p_rep_factor);
 
+  //! The number of observations that one code of this variable is repeated for,
+  //! i.e. the number of observations of one block of the DATA section
+  size_t GetRepetitionFactor();
+
   //! Advance to the next code of the variable and return its index. The codes
   //! repeat once for every combination of the codes of the variables that
   //! follow this one, which is what the repetition factor stands for.
   size_t NextCodeIndexSequential();
+
+  //! Advance the state by n observations in a single step. Because the codes
+  //! repeat with a fixed period, the code that the variable has moved on to
+  //! after n observations follows from n alone: every repetition_factor
+  //! observations the code moves on by one and the period of the variable is
+  //! repetition_factor * CodeCount() observations.
+  void SkipSequential(size_t n);
+
   size_t GetCurrentCodeIndex();
   void ResetSequentialCounter();
 
