@@ -25,23 +25,30 @@ struct PxCodeFilter {
   //! Sorted, unique list of the code indexes of the first variable that can
   //! match the filter. Can be empty, then no observation matches the filter.
   vector<idx_t> code_indexes;
-
-  bool Matches(idx_t code_index) const {
-    return std::binary_search(code_indexes.begin(), code_indexes.end(),
-                              code_index);
-  }
+  //! The number of observations that one code of the first variable is
+  //! repeated for, i.e. the size of one block of the DATA section. The
+  //! observations of the file are the cartesian product of the codes of its
+  //! variables, so the observations of a code are stored as one block.
+  size_t block_size = 1;
 
   //! The observations of a code are stored as one block and the codes are read
   //! in the order of the CODES, so a code that the reader has moved past can
-  //! never be seen again and does not have to be checked anymore.
+  //! never be seen again and does not have to be checked anymore. The code
+  //! itself is dropped as well, its block has been read in its entirety by the
+  //! time the reader moves on.
   void RemovePassedCodes(idx_t code_index) {
     code_indexes.erase(
         code_indexes.begin(),
-        std::lower_bound(code_indexes.begin(), code_indexes.end(), code_index));
+        std::upper_bound(code_indexes.begin(), code_indexes.end(), code_index));
   }
 
   //! Returns false when no observation can match the filter anymore
   bool CanMatch() const { return !code_indexes.empty(); }
+
+  //! The offset of the first observation of the first block that can still
+  //! match the filter, counted from the start of the DATA section. Requires
+  //! that the filter can still match, i.e. that it has any codes left.
+  size_t BlockOffset() const { return block_size * code_indexes[0]; }
 
   //! Both filters are applied to an observation, so only the codes that both
   //! of them can match can be read.

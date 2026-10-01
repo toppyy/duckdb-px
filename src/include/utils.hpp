@@ -23,7 +23,13 @@ public:
   char at(size_t pos) const { return data_[pos]; }
 };
 
-bool IsWhiteSpace(char c);
+//! The white space of a PX file. The reader looks at every single byte of a
+//! file while it scans over the values of the observations that it skips, so
+//! this is defined in the header for it to be inlined into that loop.
+inline bool IsWhiteSpace(char c) {
+  return c == ' ' || c == '\r' || c == '\n' || c == '\t';
+}
+
 bool IsNumeric(StringView val);
 
 //! Whether the bytes are well-formed UTF-8, i.e. whether DuckDB can safely put

@@ -51,13 +51,54 @@ void PxReader::AssignIntegerValue(size_t variable, size_t out_idx,
   FlatVector::GetData<int32_t>(*read_vecs[variable])[out_idx] = ival;
 }
 
-void PxReader::SkipObservation() {
-  // The value of an observation that is skipped is never needed
-  GetNextValue();
-  for (size_t col_idx = 0; col_idx < pxfile.variable_count; col_idx++) {
-    pxfile.GetVariable(col_idx).NextCodeIndexSequential();
+//! Move the reader past the value of the next observation without looking at
+//! it. A value is a token of the DATA section that is separated from the
+//! others by white space, a semicolon instead stands for an observation
+//! without a value. Returns false when the DATA section holds no more values,
+//! which happens for a file that is cut short.
+bool PxReader::SkipValue() {
+  data_offset = SkipWhiteSpace(data, data_offset, data_size);
+  if (data_offset >= data_size) {
+    return false;
   }
-  observations_read++;
+  if (data[data_offset] == ';') {
+    data_offset++;
+    return true;
+  }
+  while (data_offset < data_size && !IsWhiteSpace(data[data_offset]) &&
+         data[data_offset] != ';') {
+    data_offset++;
+  }
+  if (data_offset < data_size && data[data_offset] == ';') {
+    data_offset++;
+  }
+  return true;
+}
+
+void PxReader::SkipObservations(size_t n) {
+  // The observations of the file can not be read past its end
+  n = MinValue(n, pxfile.observations - observations_read);
+  if (n == 0) {
+    return;
+  }
+
+  // The values of the skipped observations are never needed, so the DATA
+  // section is scanned over without parsing the tokens that it holds
+  for (size_t i = 0; i < n; i++) {
+    if (!SkipValue()) {
+      // The file holds fewer values than it has combinations of codes, the
+      // codes still move on so that the rows after it stay correct
+      break;
+    }
+  }
+
+  // The observations of the file are the cartesian product of the codes of its
+  // variables, so where every variable ends up after n observations follows
+  // from n alone
+  for (size_t col_idx = 0; col_idx < pxfile.variable_count; col_idx++) {
+    pxfile.GetVariable(col_idx).SkipSequential(n);
+  }
+  observations_read += n;
 }
 
 void PxReader::Read(DataChunk &output, const PxCodeFilter &code_filter) {
@@ -78,8 +119,6 @@ void PxReader::Read(DataChunk &output, const PxCodeFilter &code_filter) {
   // from it while scanning, the pushed down filter of the query itself is
   // left alone.
   PxCodeFilter remaining = code_filter;
-  idx_t current_code =
-      remaining.active ? pxfile.GetVariable(0).GetCurrentCodeIndex() : 0;
 
   // There are actually variables + 1 vectors in the output
   // pxfile.variable_count only counts for variables excl. "value"
@@ -90,23 +129,30 @@ void PxReader::Read(DataChunk &output, const PxCodeFilter &code_filter) {
   while (observations_read < pxfile.observations) {
 
     if (remaining.active) {
-      auto code_index = pxfile.GetVariable(0).GetCurrentCodeIndex();
-      if (code_index != current_code) {
-        // The reader has moved on to the next code of the first variable
-        remaining.RemovePassedCodes(code_index);
-        current_code = code_index;
-      }
+
       if (!remaining.CanMatch()) {
         // Every code that could have matched the filter has been read, the
         // rest of the file can not contain a match anymore
         observations_read = pxfile.observations;
         break;
       }
-      if (!remaining.Matches(code_index)) {
-        // The observations of the first variable are stored as one block of
-        // observations per code, so the whole block is skipped instead of
-        // being materialized and thrown away by DuckDB afterwards.
-        SkipObservation();
+
+      // The observations of a code of the first variable are stored as one
+      // block, so the reader can be moved to the next block that can match
+      // the filter in a single step instead of reading the blocks in between
+      // and throwing them away by DuckDB afterwards
+      size_t block_offset = remaining.BlockOffset();
+      size_t block_end = block_offset + remaining.block_size;
+
+      if (observations_read < block_offset) {
+        SkipObservations(block_offset - observations_read);
+        continue;
+      }
+
+      if (observations_read >= block_end) {
+        // The block that the reader was in has been read in its entirety,
+        // its code can not be read again
+        remaining.RemovePassedCodes(remaining.code_indexes[0]);
         continue;
       }
     }

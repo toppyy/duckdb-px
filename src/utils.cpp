@@ -5,18 +5,6 @@
 
 namespace duckdb {
 
-bool IsWhiteSpace(char c) {
-  if (c == 32)
-    return true;
-  if (c == '\r')
-    return true;
-  if (c == '\n')
-    return true;
-  if (c == '\t')
-    return true;
-  return false;
-}
-
 bool IsNumeric(StringView val) {
   if (val.empty())
     return false;
@@ -231,52 +219,6 @@ int32_t ParseInt32(StringView sv) {
   return negative ? -(int32_t)result : (int32_t)result;
 }
 
-/*
-int32_t ParseInt32(StringView sv) {
-  if (sv.empty())
-    return 0;
 
-  const char *start = sv.data();
-  const char *end = start + sv.size();
-  const char *p = start;
-
-  // Skip leading whitespace
-  while (p < end && IsWhiteSpace(*p))
-    p++;
-
-  if (p >= end)
-    return 0;
-
-  // Handle sign
-  bool negative = false;
-  if (*p == '-') {
-    negative = true;
-    p++;
-  } else if (*p == '+') {
-    p++;
-  }
-
-  if (p >= end)
-    return 0;
-
-  int64_t result = 0;
-  while (p < end && *p >= '0' && *p <= '9') {
-    result = result * 10 + (*p - '0');
-    if (result > 3000000000LL) {
-      break;
-    }
-    p++;
-  }
-  while (p < end && *p >= '0' && *p <= '9') {
-    p++;
-  }
-  if (result > INT32_MAX)
-    result = INT32_MAX;
-  if (negative && result > (int64_t)INT32_MAX + 1)
-    result = (int64_t)INT32_MAX + 1;
-  int32_t out = (int32_t)result;
-  return negative ? -out : out;
-}
-*/
 
 } // namespace duckdb

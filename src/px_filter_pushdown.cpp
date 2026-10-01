@@ -216,10 +216,17 @@ void PxPushdownComplexFilter(ClientContext &context, LogicalGet &get,
     if (filter_values.column_index != 0) {
       continue;
     }
+
     PxCodeFilter code_filter;
     code_filter.active = true;
+    // The observations of the file are the cartesian product of the codes of
+    // its variables, so one code of the first variable is repeated for as many
+    // observations as there are combinations of the codes behind it. That is
+    // exactly the repetition factor that the reader gave the variable.
+    code_filter.block_size = pxfile.GetVariable(0).GetRepetitionFactor();
     code_filter.code_indexes = ResolveCodeIndexes(
         context, pxfile.GetVariable(0), filter_values.values);
+
     if (bind_data.code_filter.active) {
       // Every filter of the query is applied to an observation, so when the
       // first variable has more than one filter, only the codes that all of
