@@ -219,6 +219,4 @@ int32_t ParseInt32(StringView sv) {
   return negative ? -(int32_t)result : (int32_t)result;
 }
 
-
-
 } // namespace duckdb
