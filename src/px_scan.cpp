@@ -8,7 +8,7 @@ void CheckPxNamedParameters(TableFunctionBindInput &input) {
     if (kv.second.IsNull()) {
       throw BinderException("Cannot use NULL as function argument");
     }
-    auto loption = StringUtil::Lower(kv.first);
+    auto loption = StringUtil::Lower(kv.first.GetIdentifierName());
     throw InternalException("Unrecognized option %s", loption.c_str());
   }
 }
@@ -16,7 +16,7 @@ void CheckPxNamedParameters(TableFunctionBindInput &input) {
 unique_ptr<FunctionData> PxBindFunction(ClientContext &context,
                                         TableFunctionBindInput &input,
                                         vector<LogicalType> &return_types,
-                                        vector<string> &names) {
+                                        vector<Identifier> &names) {
   auto &filename = input.inputs[0];
   auto result = make_uniq<PxBindData>();
 
@@ -28,10 +28,10 @@ unique_ptr<FunctionData> PxBindFunction(ClientContext &context,
   result->reader = make_shared_ptr<PxReader>(context, filename.ToString());
 
   return_types = result->reader->return_types;
-  names = result->reader->names;
+  names = StringsToIdentifiers(result->reader->names);
 
   result->types = return_types;
-  result->names = names;
+  result->names = result->reader->names;
 
   return std::move(result);
 };

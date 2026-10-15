@@ -42,7 +42,7 @@ struct PxMetadataGlobalState : GlobalTableFunctionState {
 unique_ptr<FunctionData>
 PxMetadataBindFunction(ClientContext &context, TableFunctionBindInput &input,
                        vector<LogicalType> &return_types,
-                       vector<string> &names);
+                       vector<Identifier> &names);
 
 unique_ptr<GlobalTableFunctionState>
 PxMetadataGlobalInit(ClientContext &context, TableFunctionInitInput &input);

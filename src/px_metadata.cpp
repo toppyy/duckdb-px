@@ -9,7 +9,7 @@ namespace duckdb {
 unique_ptr<FunctionData>
 PxMetadataBindFunction(ClientContext &context, TableFunctionBindInput &input,
                        vector<LogicalType> &return_types,
-                       vector<string> &names) {
+                       vector<Identifier> &names) {
   auto &filename = input.inputs[0];
   if (filename.IsNull()) {
     throw BinderException("Cannot use NULL as file name for read_px_metadata");
@@ -46,7 +46,7 @@ PxMetadataBindFunction(ClientContext &context, TableFunctionBindInput &input,
   names = {"variable", "code", "value"};
   return_types = {LogicalType::VARCHAR, LogicalType::VARCHAR,
                   LogicalType::VARCHAR};
-  result->names = names;
+  result->names = IdentifiersToStrings(names);
   result->types = return_types;
   return std::move(result);
 }
@@ -64,26 +64,26 @@ void PxMetadataFunction(ClientContext &context, TableFunctionInput &data,
   auto &gstate = data.global_state->Cast<PxMetadataGlobalState>();
 
   if (gstate.offset >= bind_data.entries.size()) {
-    output.SetCardinality(0);
+    output.SetChildCardinality(0);
     return;
   }
   idx_t remaining = bind_data.entries.size() - gstate.offset;
   idx_t count = MinValue<idx_t>(remaining, STANDARD_VECTOR_SIZE);
   for (idx_t i = 0; i < count; i++) {
     auto &e = bind_data.entries[gstate.offset + i];
-    FlatVector::GetData<string_t>(output.data[0])[i] =
+    FlatVector::GetDataMutable<string_t>(output.data[0])[i] =
         StringVector::AddString(output.data[0], e.variable);
-    FlatVector::GetData<string_t>(output.data[1])[i] =
+    FlatVector::GetDataMutable<string_t>(output.data[1])[i] =
         StringVector::AddString(output.data[1], e.code);
     if (e.has_value) {
-      FlatVector::GetData<string_t>(output.data[2])[i] =
+      FlatVector::GetDataMutable<string_t>(output.data[2])[i] =
           StringVector::AddString(output.data[2], e.value);
-      FlatVector::Validity(output.data[2]).SetValid(i);
+      FlatVector::ValidityMutable(output.data[2]).SetValid(i);
     } else {
-      FlatVector::Validity(output.data[2]).SetInvalid(i);
+      FlatVector::ValidityMutable(output.data[2]).SetInvalid(i);
     }
   }
-  output.SetCardinality(count);
+  output.SetChildCardinality(count);
   gstate.offset += count;
 }
 
