@@ -58,7 +58,8 @@ static bool TryExtractFilterValues(LogicalGet &get, Expression &expr,
     if (left.GetExpressionClass() == ExpressionClass::BOUND_COLUMN_REF) {
       column = &left;
       constant = &right;
-    } else if (right.GetExpressionClass() == ExpressionClass::BOUND_COLUMN_REF) {
+    } else if (right.GetExpressionClass() ==
+               ExpressionClass::BOUND_COLUMN_REF) {
       column = &right;
       constant = &left;
     }
