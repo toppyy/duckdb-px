@@ -220,7 +220,7 @@ physical_plan	<!REGEX>:.*"File Filters".*
 
 # A comparison of the codes of the first variable is not pushed down
 query II
-EXPLAIN (FORMAT json) SELECT * FROM read_px('test/data/statfin_vaerak_pxt_11rc.px') WHERE vuosi >= '1900' AND vuosi <= '1900';
+EXPLAIN (FORMAT json) SELECT * FROM read_px('test/data/statfin_vaerak_pxt_11rc.px') WHERE vuosi >= '1900' AND vuosi <= '1910';
 ----
 physical_plan	<!REGEX>:.*"File Filters".*
 

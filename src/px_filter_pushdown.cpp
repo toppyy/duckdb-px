@@ -14,20 +14,20 @@ namespace duckdb {
 //! Resolve a column reference of a filter into the index of the column of the
 //! scan. Returns false when the expression does not reference a column of this
 //! scan at all.
-static bool TryGetScanColumn(LogicalGet &get, Expression &expr,
+static bool TryGetScanColumn(LogicalGet &get, const Expression &expr,
                              idx_t &column_index) {
   if (expr.GetExpressionClass() != ExpressionClass::BOUND_COLUMN_REF) {
     return false;
   }
   auto &ref = expr.Cast<BoundColumnRefExpression>();
-  if (ref.depth != 0 || ref.binding.table_index != get.table_index) {
+  if (ref.Depth() != 0 || ref.Binding().table_index != get.table_index) {
     return false;
   }
   auto &column_ids = get.GetColumnIds();
-  if (ref.binding.column_index >= column_ids.size()) {
+  if (ref.Binding().column_index >= column_ids.size()) {
     return false;
   }
-  auto &column_id = column_ids[ref.binding.column_index];
+  auto &column_id = column_ids[ref.Binding().column_index];
   if (!column_id.HasPrimaryIndex() || column_id.IsVirtualColumn()) {
     return false;
   }
@@ -45,21 +45,23 @@ static bool TryGetScanColumn(LogicalGet &get, Expression &expr,
 static bool TryExtractFilterValues(LogicalGet &get, Expression &expr,
                                    PxFilterValues &result) {
   switch (expr.GetExpressionClass()) {
-  case ExpressionClass::BOUND_COMPARISON: {
-    auto &comparison = expr.Cast<BoundComparisonExpression>();
-    if (comparison.GetExpressionType() != ExpressionType::COMPARE_EQUAL) {
+  case ExpressionClass::BOUND_FUNCTION: {
+    if (!BoundComparisonExpression::IsComparison(expr) ||
+        expr.GetExpressionType() != ExpressionType::COMPARE_EQUAL) {
       return false;
     }
-    Expression *column = nullptr;
-    Expression *constant = nullptr;
-    if (comparison.left->GetExpressionClass() ==
-        ExpressionClass::BOUND_COLUMN_REF) {
-      column = comparison.left.get();
-      constant = comparison.right.get();
-    } else if (comparison.right->GetExpressionClass() ==
+    auto &comparison = expr.Cast<BoundFunctionExpression>();
+    auto &left = BoundComparisonExpression::Left(comparison);
+    auto &right = BoundComparisonExpression::Right(comparison);
+    const Expression *column = nullptr;
+    const Expression *constant = nullptr;
+    if (left.GetExpressionClass() == ExpressionClass::BOUND_COLUMN_REF) {
+      column = &left;
+      constant = &right;
+    } else if (right.GetExpressionClass() ==
                ExpressionClass::BOUND_COLUMN_REF) {
-      column = comparison.right.get();
-      constant = comparison.left.get();
+      column = &right;
+      constant = &left;
     }
     if (!column ||
         constant->GetExpressionClass() != ExpressionClass::BOUND_CONSTANT) {
@@ -68,36 +70,40 @@ static bool TryExtractFilterValues(LogicalGet &get, Expression &expr,
     if (!TryGetScanColumn(get, *column, result.column_index)) {
       return false;
     }
-    result.values.push_back(constant->Cast<BoundConstantExpression>().value);
+    result.values.push_back(
+        constant->Cast<BoundConstantExpression>().GetValue());
     return true;
   }
   case ExpressionClass::BOUND_OPERATOR: {
     auto &in_operator = expr.Cast<BoundOperatorExpression>();
+    auto &children = in_operator.GetChildren();
     if (in_operator.GetExpressionType() != ExpressionType::COMPARE_IN ||
-        in_operator.children.size() < 2) {
+        children.size() < 2) {
       return false;
     }
-    if (!TryGetScanColumn(get, *in_operator.children[0], result.column_index)) {
+    if (!TryGetScanColumn(get, *children[0], result.column_index)) {
       return false;
     }
-    for (idx_t i = 1; i < in_operator.children.size(); i++) {
-      auto &child = *in_operator.children[i];
+    for (idx_t i = 1; i < children.size(); i++) {
+      auto &child = *children[i];
       if (child.GetExpressionClass() != ExpressionClass::BOUND_CONSTANT) {
         return false;
       }
-      result.values.push_back(child.Cast<BoundConstantExpression>().value);
+      result.values.push_back(child.Cast<BoundConstantExpression>().GetValue());
     }
     return true;
   }
   case ExpressionClass::BOUND_CONJUNCTION: {
     auto &conjunction = expr.Cast<BoundConjunctionExpression>();
-    if (conjunction.GetExpressionType() != ExpressionType::CONJUNCTION_OR) {
+    auto &children = conjunction.GetChildren();
+    if (conjunction.GetExpressionType() != ExpressionType::CONJUNCTION_OR ||
+        children.size() < 2) {
       return false;
     }
     PxFilterValues left;
     PxFilterValues right;
-    if (!TryExtractFilterValues(get, *conjunction.children[0], left) ||
-        !TryExtractFilterValues(get, *conjunction.children[1], right) ||
+    if (!TryExtractFilterValues(get, *children[0], left) ||
+        !TryExtractFilterValues(get, *children[1], right) ||
         left.column_index != right.column_index) {
       return false;
     }
@@ -124,11 +130,11 @@ static bool TryGetConstantString(ClientContext &context, const Value &value,
     result = StringValue::Get(value);
     return true;
   }
-  Value casted;
-  if (!value.TryCastAs(context, LogicalType::VARCHAR, casted, nullptr)) {
+  auto casted = value.TryCastAs(context, LogicalType::VARCHAR);
+  if (!casted) {
     return false;
   }
-  result = StringValue::Get(casted);
+  result = StringValue::Get(*casted);
   return true;
 }
 
@@ -164,7 +170,7 @@ static string PxDescribePushdown(LogicalGet &get,
                                  const PxFilterValues &filters) {
   string column = to_string(filters.column_index);
   if (filters.column_index < get.names.size()) {
-    column = get.names[filters.column_index];
+    column = get.names[filters.column_index].GetIdentifierName();
   }
   if (filters.values.empty()) {
     return column;

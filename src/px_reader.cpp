@@ -42,13 +42,13 @@ void PxReader::AssignValue(size_t variable, size_t out_idx, StringView val) {
 void PxReader::AssignFloatValue(size_t variable, size_t out_idx,
                                 StringView val) {
   float fval = ParseFloat(val);
-  FlatVector::GetData<float>(*read_vecs[variable])[out_idx] = fval;
+  FlatVector::GetDataMutable<float>(*read_vecs[variable])[out_idx] = fval;
 }
 
 void PxReader::AssignIntegerValue(size_t variable, size_t out_idx,
                                   StringView val) {
   int32_t ival = ParseInt32(val);
-  FlatVector::GetData<int32_t>(*read_vecs[variable])[out_idx] = ival;
+  FlatVector::GetDataMutable<int32_t>(*read_vecs[variable])[out_idx] = ival;
 }
 
 //! Move the reader past the value of the next observation without looking at
@@ -162,10 +162,11 @@ void PxReader::Read(DataChunk &output, const PxCodeFilter &code_filter) {
       if (col_idx == variables) {
         StringView val = GetNextValue();
         if (!IsNumeric(val)) {
-          FlatVector::Validity(*read_vecs[variables]).SetInvalid(out_idx);
+          FlatVector::ValidityMutable(*read_vecs[variables])
+              .SetInvalid(out_idx);
           continue;
         };
-        FlatVector::Validity(*read_vecs[variables]).SetValid(out_idx);
+        FlatVector::ValidityMutable(*read_vecs[variables]).SetValid(out_idx);
         AssignValue(variables, out_idx, val);
         continue;
       }
@@ -185,10 +186,24 @@ void PxReader::Read(DataChunk &output, const PxCodeFilter &code_filter) {
   }
 
   for (size_t i = 0; i <= variables; i++) {
-    output.data[i].Reference(*read_vecs[i]);
+    if (i < variables) {
+      // The variable columns are dictionaries over their codes. The output
+      // vector has to hold exactly the observations that were just read, so it
+      // is built as a fresh dictionary view over the same codes.
+      auto entry =
+          read_vecs[i]->BufferMutable().Cast<DictionaryBuffer>().GetEntryPtr();
+      output.data[i].Dictionary(std::move(entry),
+                                DictionaryVector::SelVector(*read_vecs[i]),
+                                out_idx);
+    } else {
+      // The value column is a flat vector, its size grows with the number of
+      // observations that were just read
+      output.data[i].Reference(*read_vecs[i]);
+      FlatVector::SetSize(output.data[i], out_idx);
+    }
   }
 
-  output.SetCardinality(out_idx);
+  output.SetCardinalityUnsafe(out_idx);
 }
 
 PxReader::PxReader(ClientContext &context, const string filename)
@@ -235,10 +250,13 @@ void PxReader::AddVariableColumn(Variable &var) {
   size_t idx = read_vecs.size() - 1;
   size_t out_idx = 0;
   for (auto &code : var.GetCodes()) {
-    FlatVector::GetData<string_t>(*read_vecs[idx])[out_idx] =
+    FlatVector::GetDataMutable<string_t>(*read_vecs[idx])[out_idx] =
         StringVector::AddString(*read_vecs[idx], code);
     out_idx++;
   }
+  // The size of the vector is the number of codes that were just written, the
+  // dictionary view built below slices it down to the full vector size
+  FlatVector::SetSize(*read_vecs[idx], var.CodeCount());
 
   // Turn it into a dictionary vectory. The selection vector is zeroed so that
   // every entry points at a code that was just written, even the entries that

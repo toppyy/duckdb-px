@@ -54,7 +54,7 @@ void CheckPxNamedParameters(TableFunctionBindInput &input);
 unique_ptr<FunctionData> PxBindFunction(ClientContext &context,
                                         TableFunctionBindInput &input,
                                         vector<LogicalType> &return_types,
-                                        vector<string> &names);
+                                        vector<Identifier> &names);
 
 unique_ptr<GlobalTableFunctionState>
 PxGlobalInit(ClientContext &context, TableFunctionInitInput &input);
